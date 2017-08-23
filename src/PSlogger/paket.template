@@ -1,0 +1,25 @@
+type project
+title
+    PSlogger
+owners
+    Jack Fox
+authors 
+    Jack Fox
+projectUrl
+    https://github.com/jackfoxy/PSlogger
+iconUrl
+    https://raw.githubusercontent.com/jackfoxy/PSlogger/master/docs/files/img/logo.png
+licenseUrl
+    https://github.com/jackfoxy/PSlogger/blob/master/LICENSE.txt
+requireLicenseAcceptance
+    false
+copyright
+    Copyright 2017
+tags
+    F# fsharp log logger logging azure
+summary
+    Azure logger using table storage
+description
+    Azure logger using table storage
+
+

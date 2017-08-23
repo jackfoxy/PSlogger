@@ -1,0 +1,44 @@
+﻿{
+  "InternalLog": {
+    "UtcRunTime": {
+      "Type": "DateTime"
+    },
+    "UtcTime": {
+      "Type": "DateTime"
+    },
+    "LocalTime": {
+      "Type": "DateTime",
+      "Optional": true
+    },
+    "Level": {
+      "Type": "string"
+    },
+    "Message": {
+      "Type": "string"
+    },
+    "AssembliesOrVersion": {
+      "Type": "string"
+    },
+    "MachineName": {
+      "Type": "string",
+      "Optional": true
+    },
+    "Process": {
+      "Type": "string"
+    },
+    "ByteInfo": {
+      "Type": "binary"
+    },
+    "StringInfo": {
+      "Type": "string",
+      "Optional": true
+    },
+    "Exception": {
+      "Type": "binary"
+    },
+    "ExceptionString": {
+      "Type": "string",
+      "Optional": true
+    }
+  }
+}

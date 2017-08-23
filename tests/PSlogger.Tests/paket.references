@@ -1,0 +1,6 @@
+FSharp.Core
+FSharp.Configuration
+Expecto
+Expecto.BenchmarkDotNet
+Expecto.FsCheck
+Expecto.VisualStudio.TestAdapter

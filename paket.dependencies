@@ -1,0 +1,23 @@
+framework: auto-detect
+source https://nuget.org/api/v2
+
+nuget FSharp.Core
+nuget FSharp.Configuration
+nuget WindowsAzure.Storage  
+nuget FSharpx.Extras
+nuget FsPickler
+nuget Argu
+
+source https://nuget.org/api/v2
+  
+nuget FAKE
+nuget FSharp.Formatting
+
+github fsharp/FAKE modules/Octokit/Octokit.fsx
+
+source https://nuget.org/api/v2
+  
+nuget Expecto
+nuget Expecto.BenchmarkDotNet
+nuget Expecto.FsCheck
+nuget Expecto.VisualStudio.TestAdapter version_in_path: true
