@@ -97,11 +97,11 @@ module IO =
       member StringInfo : string  with set
       member UtcTime : System.DateTime with set
    
-    val insert : azureConnectionString : string -> log : Log -> unit
+    val insert : azureConnectionString : string -> log : Log -> logNamePrefix : string -> unit
 
-    val insertAsync : azureConnectionString : string -> log : Log -> Task<TableResult>
+    val insertAsync : azureConnectionString : string -> log : Log -> logNamePrefix : string -> Task<TableResult>
 
-    val list : predicate : Predicate -> azureConnectionString : string -> Log seq
+    val list : predicate : Predicate -> azureConnectionString : string -> logNamePrefix : string -> Log seq
 
-    val purgeBeforeDaysBack : daysToPurgeBack : int -> azureConnectionString : string -> int
+    val purgeBeforeDaysBack : daysToPurgeBack : int -> azureConnectionString : string -> logNamePrefix : string -> int
 

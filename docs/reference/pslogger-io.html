@@ -74,10 +74,10 @@ workaround for <a href="https://github.com/Azure/azure-storage-net/issues/523">h
         <td class="member-name">
 
           <code onmouseout="hideTip(event, '1', 1)" onmouseover="showTip(event, '1', 1)">
-            insert azureConnectionString log
+            insert (...)
           </code>
           <div class="tip" id="1">
-            <strong>Signature:</strong> azureConnectionString:string -&gt; log:Log -&gt; unit<br />
+            <strong>Signature:</strong> azureConnectionString:string -&gt; log:Log -&gt; logNamePrefix:string -&gt; unit<br />
                       </div>
         </td>
         <td class="xmldoc">
@@ -92,10 +92,10 @@ workaround for <a href="https://github.com/Azure/azure-storage-net/issues/523">h
         <td class="member-name">
 
           <code onmouseout="hideTip(event, '2', 2)" onmouseover="showTip(event, '2', 2)">
-            insertAsync azureConnectionString log
+            insertAsync (...)
           </code>
           <div class="tip" id="2">
-            <strong>Signature:</strong> azureConnectionString:string -&gt; log:Log -&gt; Task&lt;TableResult&gt;<br />
+            <strong>Signature:</strong> azureConnectionString:string -&gt; log:Log -&gt; logNamePrefix:string -&gt; Task&lt;TableResult&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
@@ -110,10 +110,10 @@ workaround for <a href="https://github.com/Azure/azure-storage-net/issues/523">h
         <td class="member-name">
 
           <code onmouseout="hideTip(event, '3', 3)" onmouseover="showTip(event, '3', 3)">
-            list predicate azureConnectionString
+            list (...)
           </code>
           <div class="tip" id="3">
-            <strong>Signature:</strong> predicate:Predicate -&gt; azureConnectionString:string -&gt; seq&lt;Log&gt;<br />
+            <strong>Signature:</strong> predicate:Predicate -&gt; azureConnectionString:string -&gt; logNamePrefix:string -&gt; seq&lt;Log&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
@@ -131,7 +131,7 @@ workaround for <a href="https://github.com/Azure/azure-storage-net/issues/523">h
             purgeBeforeDaysBack (...)
           </code>
           <div class="tip" id="4">
-            <strong>Signature:</strong> daysToPurgeBack:int -&gt; azureConnectionString:string -&gt; int<br />
+            <strong>Signature:</strong> daysToPurgeBack:int -&gt; azureConnectionString:string -&gt; logNamePrefix:string -&gt; int<br />
                       </div>
         </td>
         <td class="xmldoc">

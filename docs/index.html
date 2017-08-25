@@ -152,7 +152,7 @@ Use the <code>CountingLog</code> type as a log template for the duration of the 
                                 <span class="i">Process</span> <span class="o">=</span> <span class="i">curretnProcess</span>
                                 <span class="i">Message</span> <span class="o">=</span> <span class="i">message</span>
                                 <span class="i">StringInfo</span> <span class="o">=</span> <span class="i">addlInfo</span>
-                                }
+                                } <span class="s">&quot;MyLogPrefix&quot;</span>
     <span class="o">|&gt;</span> <span class="i">Async</span><span class="o">.</span><span class="i">AwaitTask</span>
     <span class="o">|&gt;</span> <span class="i">Async</span><span class="o">.</span><span class="i">RunSynchronously</span>
     <span class="o">|&gt;</span> <span class="i">ignore</span>
@@ -178,7 +178,7 @@ Use the <code>CountingLog</code> type as a log template for the duration of the 
                             <span class="i">Message</span> <span class="o">=</span> <span class="i">exn</span><span class="o">.</span><span class="i">Message</span>
                             <span class="i">Exception</span> <span class="o">=</span> <span class="i">Some</span> <span class="i">exn</span>
                             <span class="i">StringInfo</span> <span class="o">=</span> <span class="i">Some</span> <span class="i">currentRecord</span>
-                            }
+                            }  <span class="s">&quot;MyLogPrefix&quot;</span>
 </code></pre></td>
 </tr>
 </table>

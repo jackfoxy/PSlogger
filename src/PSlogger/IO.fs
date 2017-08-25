@@ -210,8 +210,8 @@ exception LogInsertException of string
 
 module IO =
 
-    [<Literal>]
-    let LogsNamePrefix = "logs"
+    //[<Literal>]
+    //let LogsNamePrefix = "logs"
 
     let exceptionSerialize (exc : System.Exception option) =
 
@@ -307,16 +307,16 @@ module IO =
         ExceptionString = internalLog.ExceptionString
         }
 
-    let tableNameFromTime (time : DateTime) =
+    let tableNameFromTime logNamePrefix (time : DateTime) =
 
-        sprintf "%s%i%s%s" LogsNamePrefix time.Year (time.Month.ToString().PadLeft(2, '0')) (time.Day.ToString().PadLeft(2, '0'))
+        sprintf "%s%i%s%s" logNamePrefix time.Year (time.Month.ToString().PadLeft(2, '0')) (time.Day.ToString().PadLeft(2, '0'))
         
-    let getClientTable (log : Log) azureConnectionString =
+    let getClientTable (log : Log) azureConnectionString logNamePrefix =
 
         let account = CloudStorageAccount.Parse azureConnectionString 
         let tableClient  = account.CreateCloudTableClient()
 
-        let tableName = tableNameFromTime log.UtcRunTime
+        let tableName = tableNameFromTime logNamePrefix log.UtcRunTime
             
         let table = tableClient.GetTableReference(tableName)
         table.CreateIfNotExists() |> ignore
@@ -330,8 +330,8 @@ module IO =
         | n -> 
             raise (LogInsertException (sprintf "Insert into Partition : %s Row : %s HttpCode : %i" log.Caller (dateTimeString log.UtcRunTime) n))
  
-    let insert azureConnectionString log =
-        let table = getClientTable log azureConnectionString
+    let insert azureConnectionString log logNamePrefix =
+        let table = getClientTable log azureConnectionString logNamePrefix
 
         let internalLog = InternalLog(log)
         let insertOp = TableOperation.Insert(internalLog)
@@ -339,15 +339,15 @@ module IO =
         table.Execute(insertOp)
         |> goodInsert log
 
-    let insertAsync azureConnectionString log =
-        let table = getClientTable log azureConnectionString
+    let insertAsync azureConnectionString log logNamePrefix =
+        let table = getClientTable log azureConnectionString logNamePrefix
 
         let internalLog = InternalLog(log)
         let insertOp = TableOperation.Insert(internalLog)
 
         table.ExecuteAsync(insertOp)
 
-    let getTablesForPredicate (tableClient : CloudTableClient) predicate = 
+    let getTablesForPredicate (tableClient : CloudTableClient) predicate logNamePrefix = 
         
         let storageAccountTables = 
             tableClient.ListTables()  //overloaded
@@ -355,7 +355,7 @@ module IO =
 
         match predicate.Operator with
         | EQ ->
-            let startTableName = tableNameFromTime predicate.StartDate
+            let startTableName = tableNameFromTime logNamePrefix predicate.StartDate
 
             storageAccountTables
             |> List.filter (fun table -> 
@@ -363,7 +363,7 @@ module IO =
                 )
 
         | LT ->
-            let startTableName = tableNameFromTime predicate.StartDate
+            let startTableName = tableNameFromTime logNamePrefix predicate.StartDate
 
             storageAccountTables
             |> List.filter (fun table -> 
@@ -371,7 +371,7 @@ module IO =
                 )
 
         | GT ->
-            let startTableName = tableNameFromTime predicate.StartDate
+            let startTableName = tableNameFromTime logNamePrefix predicate.StartDate
 
             storageAccountTables
             |> List.filter (fun table -> 
@@ -379,8 +379,8 @@ module IO =
                 )
 
         | Between ->
-            let startTableName = tableNameFromTime predicate.StartDate
-            let endTableName = tableNameFromTime predicate.EndDate.Value
+            let startTableName = tableNameFromTime logNamePrefix predicate.StartDate
+            let endTableName = tableNameFromTime logNamePrefix predicate.EndDate.Value
 
             storageAccountTables
             |> List.filter (fun table -> 
@@ -517,7 +517,7 @@ module IO =
         else
             Seq.empty
         
-    let list (predicate : Predicate) azureConnectionString =
+    let list (predicate : Predicate) azureConnectionString logNamePrefix =
         let account = CloudStorageAccount.Parse azureConnectionString 
         let tableClient  = account.CreateCloudTableClient()
 
@@ -535,23 +535,23 @@ module IO =
                     timeFilter predicate
                 )
 
-        getTablesForPredicate tableClient predicate
+        getTablesForPredicate tableClient predicate logNamePrefix
         |> Seq.collect (fun tableName -> 
             listLogsOneDay tableClient tableName tableStorageQuery predicate
             )
         |> Seq.map logFromInternal
         |> Seq.sortBy (fun t -> t.Caller, t.UtcTime, t.Counter)
 
-    let purgeBeforeDaysBack daysToPurgeBack azureConnectionString =
+    let purgeBeforeDaysBack daysToPurgeBack azureConnectionString logNamePrefix =
 
         let account = CloudStorageAccount.Parse azureConnectionString 
         let tableClient  = account.CreateCloudTableClient()
 
         let purgeTableName = 
             DateTime.UtcNow.AddDays((float daysToPurgeBack) * -1.)
-            |> tableNameFromTime
+            |> tableNameFromTime logNamePrefix
 
-        tableClient.ListTables(LogsNamePrefix)  //overloaded
+        tableClient.ListTables(logNamePrefix)  
         |> List.ofSeq
         |> List.fold (fun s (table : Table.CloudTable) ->
             if table.Name < purgeTableName then

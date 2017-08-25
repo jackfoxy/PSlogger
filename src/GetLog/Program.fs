@@ -29,7 +29,7 @@ module console1 =
                 printfn "%s" parsedCommand.Usage
             | None -> 
                 let azureConnectionString = ConfigurationManager.ConnectionStrings.["DashboardLogsAzureStorage"].ConnectionString
-                let logs = IO.list parsedCommand.Predicate.Value azureConnectionString
+                let logs = IO.list parsedCommand.Predicate.Value azureConnectionString "logs"
             
                 logs
                 |> Seq.iter (fun x -> 

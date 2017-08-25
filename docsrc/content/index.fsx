@@ -135,7 +135,7 @@ let logMessage (initLog : CountingLog) connString company curretnProcess message
                                 Process = curretnProcess
                                 Message = message
                                 StringInfo = addlInfo
-                                }
+                                } "MyLogPrefix"
     |> Async.AwaitTask
     |> Async.RunSynchronously
     |> ignore
@@ -150,7 +150,7 @@ let logException (initLog : CountingLog) connString (exn : Exception) currentRec
                             Message = exn.Message
                             Exception = Some exn
                             StringInfo = Some currentRecord
-                            }
+                            }  "MyLogPrefix"
 (**
 Samples & documentation
 -----------------------
