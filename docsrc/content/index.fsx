@@ -2,6 +2,7 @@
 // This block of code is omitted in the generated HTML documentation. Use 
 // it to define helpers that you do not want to show in the documentation.
 #I "../../src/PSlogger/bin/Debug"
+#r "../../Packages/WindowsAzure.Storage/lib/net45/Microsoft.WindowsAzure.Storage.dll"
 #r "PSlogger.dll"
 
 (**
@@ -21,17 +22,57 @@ Documentation
   <div class="span1"></div>
 </div>
 
-The logger is for asynchronous and synchronous logging of program messages from F# programs to an Azure Table Storage data store. 
+The logger is a strongly typed system for asynchronous and synchronous logging of program messages from .NET programs to an Azure Table Storage data store. 
 
-The data store is also available via Azure REST API.
+Optimized for message retrieval by software execution
+-----------------------------------------------------
+
+It is optimized for a particular style of message logging. Specifically it is convenient for querying all messages for an arbitrary "run" of 
+software. For example:
+
+* a single request/response cycle
+
+* a specific run of a batch program
+
+It accomplished this by using the software assembly identifier (caller) as the partition key, and one timestamp (associated with the run) as the
+partial row key. Data is organized by daily tables. All of messages for a given run reside in the same daily table, regardless of when they were 
+actually generated.
+
+Message retrieval by caller is also generaly fast, but due to the log deletion optimization retrieval over an excessive number of days will result
+in performance degradation, even to the point of unusable. Generally this is not a useful scenario. The logger is optimized for more common usage.
+
+The repo solution includes the `GetLog` console app with examples of message retrieval. The [`Predicate`](reference/PSlogger-predicate.html) type 
+drives queries by run time.
+
+* ``Operator`` EQ, GT, LT, Between
+
+* ``StartDate`` run time
+
+* ``EndDate`` only used for Between
+
+* ``Caller`` identifier of logging software assembly
+
+* ``LogLevels`` list of requested log levels, empty list for all
+
+Guaranteed ordering, even with async inserts
+--------------------------------------------
+
+The calling software can either manage the log counter, or take advantage of the `CountingLog` type which will manage the counter. This assures 
+messages can be ordered by their temporal generation, even when inserted asynchronously.
+
+Optimized for old message deletion
+----------------------------------
+
+Storage may be cheap, but it is not free, and table row deletion is slow. Physical storage organization by day allows the `purgeBeforeDaysBack`
+function to simply drop tables, a much more efficient operation.
 
 Suggested Usage
 ---------------
 
-The logger records messages and data from program runs (transactions) to determine program health, timely exectution, verify processing, 
-and record exceptions.
+The logger records messages and data from program runs (transactions, batch runs, etc.) to determine program health, timely exectution, 
+verify processing, and record exceptions.
 
-In general enough information should be logged so that a reasonably query strategy on the data store can determine:
+In general enough information should be logged so that a reasonable query strategy on the data store can determine:
 
 * Is the process alive. (Is it executing on schedule, performing intended processes, and creating expected outputs?)
 
@@ -45,16 +86,25 @@ To facilitate complete logging, follow this protocol:
 
 * ``UtcTime`` records the time of each message generated.
 
-* ``Counter`` It is possible to generate messages in rapid succession so that ``UtcTime`` does not increment. Also with asyncronous writes there is no guarantee of the order in 
-which messages post. It is the user's responsibility to increment ``Counter`` if message ordering is required. Use the ``CountingLog`` type as a log template for the duration of the program to automatically increment the ``Counter`` with each message.
+* ``Counter`` It is possible to generate messages in rapid succession with asyncronous inserts so that ``UtcTime`` does not increment. There is no 
+guarantee of the order in which messages post. It is the user's responsibility to increment ``Counter`` for correct message ordering. 
+Use the ``CountingLog`` type as a log template for the duration of the program to automatically increment the ``Counter`` with each message.
 
 * ``Message`` is the primary logged message.
+
+* ``AssembliesOrVersion``
+
+* ``MachineName``
 
 * ``Process`` optional, process within program generating the message
 
 * ``StringInfo`` optional, any custom data to further specify program state.
 
-See the ``Log`` [reference doc](reference/index.html) for the full message format.
+* ``ByteInfo`` optional, any custom data to further specify program state.
+
+* ``Exception`` optional, System.Exception
+
+* ``ExceptionString`` optional, exception in string format, e.g. for logging from REST interface
 
 Examples
 --------
@@ -64,6 +114,7 @@ Initializing a ``CountingLog`` template to generate messages.
 *)
 open System
 open PSlogger
+open Microsoft.WindowsAzure.Storage.Table
 
 let initLog processName =
 
@@ -77,36 +128,30 @@ let initLog processName =
 (**
 Writing messages.
 *)
-let logMessage (initLog : CountingLog) connString company curretnProcess message addlInfo  = async {
+let logMessage (initLog : CountingLog) connString company curretnProcess message addlInfo  =
     
-    do! AzureIO.insertAsync connString {initLog.Log with 
-                                        UtcTime = DateTime.UtcNow;
-                                        Process = curretnProcess
-                                        Message = message
-                                        StringInfo = addlInfo
-                                        }
-}
+    IO.insertAsync connString {initLog.Log with 
+                                UtcTime = DateTime.UtcNow;
+                                Process = curretnProcess
+                                Message = message
+                                StringInfo = addlInfo
+                                }
+    |> Async.AwaitTask
+    |> Async.RunSynchronously
+    |> ignore
 (**
 Logging exceptions.
 *)
-let logException (initLog : CountingLog) connString (exn : Exception) currentRecord  = async {
+let logException (initLog : CountingLog) connString (exn : Exception) currentRecord  = 
     
-    do! IO.insertAsync connString {initLog.Log with 
-                                            UtcTime = DateTime.UtcNow;
-                                            Level = LogLevel.ErrorException
-                                            Message = exn.Message
-                                            Exception = Some exn
-                                            StringInfo = Some currentRecord
-                                            }
-}
+    IO.insert connString {initLog.Log with 
+                            UtcTime = DateTime.UtcNow;
+                            Level = LogLevel.ErrorException
+                            Message = exn.Message
+                            Exception = Some exn
+                            StringInfo = Some currentRecord
+                            }
 (**
-Alternate Usage
----------------
-
-Optional ``StringInfo`` and ``ByteInfo`` for recording custom ``string`` and ``byte array`` information. 
-
-Querying persisted messages includes specifying [predicates](reference/PSlogger-predicate.html).
-
 Samples & documentation
 -----------------------
 

@@ -45,12 +45,38 @@
   </div>
   <div class="span1"></div>
 </div>
-<p>The logger is for asynchronous and synchronous logging of program messages from F# programs to an Azure Table Storage data store.</p>
-<p>The data store is also available via Azure REST API.</p>
+<p>The logger is a strongly typed system for asynchronous and synchronous logging of program messages from .NET programs to an Azure Table Storage data store.</p>
+<h2><a name="Optimized-for-message-retrieval-by-software-execution" class="anchor" href="#Optimized-for-message-retrieval-by-software-execution">Optimized for message retrieval by software execution</a></h2>
+<p>It is optimized for a particular style of message logging. Specifically it is convenient for querying all messages for an arbitrary "run" of
+software. For example:</p>
+<ul>
+<li>a single request/response cycle</li>
+<li>a specific run of a batch program</li>
+</ul>
+<p>It accomplished this by using the software assembly identifier (caller) as the partition key, and one timestamp (associated with the run) as the
+partial row key. Data is organized by daily tables. All of messages for a given run reside in the same daily table, regardless of when they were
+actually generated.</p>
+<p>Message retrieval by caller is also generaly fast, but due to the log deletion optimization retrieval over an excessive number of days will result
+in performance degradation, even to the point of unusable. Generally this is not a useful scenario. The logger is optimized for more common usage.</p>
+<p>The repo solution includes the <code>GetLog</code> console app with examples of message retrieval. The <a href="reference/PSlogger-predicate.html"><code>Predicate</code></a> type
+drives queries by run time.</p>
+<ul>
+<li><p><code>Operator</code> EQ, GT, LT, Between</p></li>
+<li><p><code>StartDate</code> run time</p></li>
+<li><p><code>EndDate</code> only used for Between</p></li>
+<li><p><code>Caller</code> identifier of logging software assembly</p></li>
+<li><p><code>LogLevels</code> list of requested log levels, empty list for all</p></li>
+</ul>
+<h2><a name="Guaranteed-ordering-even-with-async-inserts" class="anchor" href="#Guaranteed-ordering-even-with-async-inserts">Guaranteed ordering, even with async inserts</a></h2>
+<p>The calling software can either manage the log counter, or take advantage of the <code>CountingLog</code> type which will manage the counter. This assures
+messages can be ordered by their temporal generation, even when inserted asynchronously.</p>
+<h2><a name="Optimized-for-old-message-deletion" class="anchor" href="#Optimized-for-old-message-deletion">Optimized for old message deletion</a></h2>
+<p>Storage may be cheap, but it is not free, and table row deletion is slow. Physical storage organization by day allows the <code>purgeBeforeDaysBack</code>
+function to simply drop tables, a much more efficient operation.</p>
 <h2><a name="Suggested-Usage" class="anchor" href="#Suggested-Usage">Suggested Usage</a></h2>
-<p>The logger records messages and data from program runs (transactions) to determine program health, timely exectution, verify processing,
-and record exceptions.</p>
-<p>In general enough information should be logged so that a reasonably query strategy on the data store can determine:</p>
+<p>The logger records messages and data from program runs (transactions, batch runs, etc.) to determine program health, timely exectution,
+verify processing, and record exceptions.</p>
+<p>In general enough information should be logged so that a reasonable query strategy on the data store can determine:</p>
 <ul>
 <li>Is the process alive. (Is it executing on schedule, performing intended processes, and creating expected outputs?)</li>
 <li>The process has not thrown errors. (Trap exceptions and record them in the log with enough supporting information to make problems transparent.)</li>
@@ -61,14 +87,19 @@ and record exceptions.</p>
 <li><p><code>UtcRunTime</code> is the process start time for each message recorded in an entire run of a program (or request/response).</p></li>
 <li><p><code>UtcTime</code> records the time of each message generated.</p></li>
 <li>
-<p><code>Counter</code> It is possible to generate messages in rapid succession so that <code>UtcTime</code> does not increment. Also with asyncronous writes there is no guarantee of the order in
-which messages post. It is the user's responsibility to increment <code>Counter</code> if message ordering is required. Use the <code>CountingLog</code> type as a log template for the duration of the program to automatically increment the <code>Counter</code> with each message.</p>
+<p><code>Counter</code> It is possible to generate messages in rapid succession with asyncronous inserts so that <code>UtcTime</code> does not increment. There is no
+guarantee of the order in which messages post. It is the user's responsibility to increment <code>Counter</code> for correct message ordering.
+Use the <code>CountingLog</code> type as a log template for the duration of the program to automatically increment the <code>Counter</code> with each message.</p>
 </li>
 <li><p><code>Message</code> is the primary logged message.</p></li>
+<li><p><code>AssembliesOrVersion</code></p></li>
+<li><p><code>MachineName</code></p></li>
 <li><p><code>Process</code> optional, process within program generating the message</p></li>
 <li><p><code>StringInfo</code> optional, any custom data to further specify program state.</p></li>
+<li><p><code>ByteInfo</code> optional, any custom data to further specify program state.</p></li>
+<li><p><code>Exception</code> optional, System.Exception</p></li>
+<li><p><code>ExceptionString</code> optional, exception in string format, e.g. for logging from REST interface</p></li>
 </ul>
-<p>See the <code>Log</code> <a href="reference/index.html">reference doc</a> for the full message format.</p>
 <h2><a name="Examples" class="anchor" href="#Examples">Examples</a></h2>
 <p>Initializing a <code>CountingLog</code> template to generate messages.</p>
 <table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
@@ -83,9 +114,11 @@ which messages post. It is the user's responsibility to increment <code>Counter<
 <span class="l">10: </span>
 <span class="l">11: </span>
 <span class="l">12: </span>
+<span class="l">13: </span>
 </pre></td>
 <td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">open</span> <span class="i">System</span>
 <span class="k">open</span> <span class="i">PSlogger</span>
+<span class="k">open</span> <span class="i">Microsoft</span><span class="o">.</span><span class="i">WindowsAzure</span><span class="o">.</span><span class="i">Storage</span><span class="o">.</span><span class="i">Table</span>
 
 <span class="k">let</span> <span class="i">initLog</span> <span class="i">processName</span> <span class="o">=</span>
 
@@ -100,29 +133,6 @@ which messages post. It is the user's responsibility to increment <code>Counter<
 </tr>
 </table>
 <p>Writing messages.</p>
-<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
-<span class="l">2: </span>
-<span class="l">3: </span>
-<span class="l">4: </span>
-<span class="l">5: </span>
-<span class="l">6: </span>
-<span class="l">7: </span>
-<span class="l">8: </span>
-<span class="l">9: </span>
-</pre></td>
-<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span class="i">logMessage</span> (<span class="i">initLog</span> <span class="o">:</span> <span class="i">CountingLog</span>) <span class="i">connString</span> <span class="i">company</span> <span class="i">curretnProcess</span> <span class="i">message</span> <span class="i">addlInfo</span>  <span class="o">=</span> <span class="i">async</span> {
-    
-    <span class="k">do!</span> <span class="i">AzureIO</span><span class="o">.</span><span class="i">insertAsync</span> <span class="i">connString</span> {<span class="i">initLog</span><span class="o">.</span><span class="i">Log</span> <span class="k">with</span> 
-                                        <span class="i">UtcTime</span> <span class="o">=</span> <span class="i">DateTime</span><span class="o">.</span><span class="i">UtcNow</span>;
-                                        <span class="i">Process</span> <span class="o">=</span> <span class="i">curretnProcess</span>
-                                        <span class="i">Message</span> <span class="o">=</span> <span class="i">message</span>
-                                        <span class="i">StringInfo</span> <span class="o">=</span> <span class="i">addlInfo</span>
-                                        }
-}
-</code></pre></td>
-</tr>
-</table>
-<p>Logging exceptions.</p>
 <table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
 <span class="l"> 2: </span>
 <span class="l"> 3: </span>
@@ -133,23 +143,45 @@ which messages post. It is the user's responsibility to increment <code>Counter<
 <span class="l"> 8: </span>
 <span class="l"> 9: </span>
 <span class="l">10: </span>
+<span class="l">11: </span>
 </pre></td>
-<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span class="i">logException</span> (<span class="i">initLog</span> <span class="o">:</span> <span class="i">CountingLog</span>) <span class="i">connString</span> (<span class="i">exn</span> <span class="o">:</span> <span class="i">Exception</span>) <span class="i">currentRecord</span>  <span class="o">=</span> <span class="i">async</span> {
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span class="i">logMessage</span> (<span class="i">initLog</span> <span class="o">:</span> <span class="i">CountingLog</span>) <span class="i">connString</span> <span class="i">company</span> <span class="i">curretnProcess</span> <span class="i">message</span> <span class="i">addlInfo</span>  <span class="o">=</span>
     
-    <span class="k">do!</span> <span class="i">IO</span><span class="o">.</span><span class="i">insertAsync</span> <span class="i">connString</span> {<span class="i">initLog</span><span class="o">.</span><span class="i">Log</span> <span class="k">with</span> 
-                                            <span class="i">UtcTime</span> <span class="o">=</span> <span class="i">DateTime</span><span class="o">.</span><span class="i">UtcNow</span>;
-                                            <span class="i">Level</span> <span class="o">=</span> <span class="i">LogLevel</span><span class="o">.</span><span class="i">ErrorException</span>
-                                            <span class="i">Message</span> <span class="o">=</span> <span class="i">exn</span><span class="o">.</span><span class="i">Message</span>
-                                            <span class="i">Exception</span> <span class="o">=</span> <span class="i">Some</span> <span class="i">exn</span>
-                                            <span class="i">StringInfo</span> <span class="o">=</span> <span class="i">Some</span> <span class="i">currentRecord</span>
-                                            }
-}
+    <span class="i">IO</span><span class="o">.</span><span class="i">insertAsync</span> <span class="i">connString</span> {<span class="i">initLog</span><span class="o">.</span><span class="i">Log</span> <span class="k">with</span> 
+                                <span class="i">UtcTime</span> <span class="o">=</span> <span class="i">DateTime</span><span class="o">.</span><span class="i">UtcNow</span>;
+                                <span class="i">Process</span> <span class="o">=</span> <span class="i">curretnProcess</span>
+                                <span class="i">Message</span> <span class="o">=</span> <span class="i">message</span>
+                                <span class="i">StringInfo</span> <span class="o">=</span> <span class="i">addlInfo</span>
+                                }
+    <span class="o">|&gt;</span> <span class="i">Async</span><span class="o">.</span><span class="i">AwaitTask</span>
+    <span class="o">|&gt;</span> <span class="i">Async</span><span class="o">.</span><span class="i">RunSynchronously</span>
+    <span class="o">|&gt;</span> <span class="i">ignore</span>
 </code></pre></td>
 </tr>
 </table>
-<h2><a name="Alternate-Usage" class="anchor" href="#Alternate-Usage">Alternate Usage</a></h2>
-<p>Optional <code>StringInfo</code> and <code>ByteInfo</code> for recording custom <code>string</code> and <code>byte array</code> information.</p>
-<p>Querying persisted messages includes specifying <a href="reference/PSlogger-predicate.html">predicates</a>.</p>
+<p>Logging exceptions.</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+<span class="l">8: </span>
+<span class="l">9: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span class="i">logException</span> (<span class="i">initLog</span> <span class="o">:</span> <span class="i">CountingLog</span>) <span class="i">connString</span> (<span class="i">exn</span> <span class="o">:</span> <span class="i">Exception</span>) <span class="i">currentRecord</span>  <span class="o">=</span> 
+    
+    <span class="i">IO</span><span class="o">.</span><span class="i">insert</span> <span class="i">connString</span> {<span class="i">initLog</span><span class="o">.</span><span class="i">Log</span> <span class="k">with</span> 
+                            <span class="i">UtcTime</span> <span class="o">=</span> <span class="i">DateTime</span><span class="o">.</span><span class="i">UtcNow</span>;
+                            <span class="i">Level</span> <span class="o">=</span> <span class="i">LogLevel</span><span class="o">.</span><span class="i">ErrorException</span>
+                            <span class="i">Message</span> <span class="o">=</span> <span class="i">exn</span><span class="o">.</span><span class="i">Message</span>
+                            <span class="i">Exception</span> <span class="o">=</span> <span class="i">Some</span> <span class="i">exn</span>
+                            <span class="i">StringInfo</span> <span class="o">=</span> <span class="i">Some</span> <span class="i">currentRecord</span>
+                            }
+</code></pre></td>
+</tr>
+</table>
 <h2><a name="Samples-amp-documentation" class="anchor" href="#Samples-amp-documentation">Samples &amp; documentation</a></h2>
 <ul>
 <li><p><a href="tutorial.html">Tutorial</a> contains a further explanation of this sample library.</p></li>

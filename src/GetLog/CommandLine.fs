@@ -33,9 +33,9 @@ module CommandLine =
             interface IArgParserTemplate with
                 member s.Usage =
                     match s with
-                    | EQ _ -> "predicate equals datetime"
-                    | GT _ -> "predicate greater than datetime"
-                    | LT _ -> "predicate less than datetime"
+                    | EQ _ -> "equals datetime"
+                    | GT _ -> "greater than datetime"
+                    | LT _ -> "less than datetime"
                     | Between _ -> "between datetimes, comma separated"
                     | Caller _ -> "calling program"
                     | LogLevels _ -> "log level list, comma separated"

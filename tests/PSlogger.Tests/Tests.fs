@@ -1,15 +1,11 @@
 namespace PSlogger.Tests
 
 open Expecto
-open FsCheck
 open PSlogger
 open System
+open Microsoft.WindowsAzure.Storage.Table
 
 module Tests =
-    let config10k = { FsCheckConfig.defaultConfig with maxTest = 10000}
-    // bug somewhere:  registering arbitrary generators causes Expecto VS test adapter not to work
-    //let config10k = { FsCheckConfig.defaultConfig with maxTest = 10000; arbitrary = [typeof<Generators>] }
-    let configReplay = { FsCheckConfig.defaultConfig with maxTest = 10000 ; replay = Some <| (1940624926, 296296394) }
 
     let log1 =
         { 
@@ -40,8 +36,8 @@ module Tests =
     [<Tests>]
     let testSimpleTests azureConnectionString =
 
-        testList "write and read log record no optional" [
-            testCase "equality" <| fun () ->
+        testList "write and read log record" [
+            testCase "equality no optional" <| fun () ->
                 let testDate = DateTime.UtcNow.AddDays(-7.)
                 let inLog = {log1 with 
                                 UtcRunTime = testDate
@@ -54,14 +50,119 @@ module Tests =
                 IO.insert azureConnectionString inLog
                 let outLog = 
                     IO.list predicate azureConnectionString
+                    |> Seq.filter (fun x-> x.UtcTime = testDate)
                     |> Seq.head
 
                 Expect.isTrue (inLog = outLog) "Expected True"
 
-            //testPropertyWithConfig config10k "whitespace" <|
-            //    fun  () ->
-            //        Prop.forAll (Arb.fromGen <| whitespaceString())
-            //            (fun (x : string) -> 
-            //                x = x)
+            testCase "equality no optional write async" <| fun () ->
+                let testDate = DateTime.UtcNow.AddDays(-5.)
+                let inLog = {log1 with 
+                                UtcRunTime = testDate
+                                UtcTime = testDate }
+                
+                let predicate = {predicate1 with
+                                  StartDate = testDate.AddMinutes(-1.)
+                                  EndDate = testDate.AddMinutes(1.) |> Some }
+
+                IO.insertAsync azureConnectionString inLog 
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+                |> ignore
+
+                let outLog = 
+                    IO.list predicate azureConnectionString
+                    |> Seq.filter (fun x-> x.UtcTime = testDate)
+                    |> Seq.head
+
+                Expect.isTrue (inLog = outLog) "Expected True"
+
+            testCase "equality all optionals" <| fun () ->
+                try
+                    let n = 1 / 0
+                    Expect.isTrue false "how did we get here?"
+                with e ->
+                    let testDate = DateTime.UtcNow.AddHours(-6.)
+                    let inLog = {log1 with 
+                                    UtcRunTime = testDate
+                                    UtcTime = testDate 
+                                    Process = Some "equality all optionals"
+                                    ByteInfo = Some [|0uy;1uy;2uy|]
+                                    StringInfo = Some "a string"
+                                    Exception = Some e
+                                    ExceptionString = Some e.Message
+                                    }
+                
+                    let predicate = {predicate1 with
+                                      StartDate = testDate.AddMinutes(-1.)
+                                      EndDate = testDate.AddMinutes(1.) |> Some }
+
+                    IO.insert azureConnectionString inLog
+                    let outLog = 
+                        IO.list predicate azureConnectionString
+                        |> Seq.filter (fun x-> x.UtcTime = testDate)
+                        |> Seq.head
+
+                    //because Exception comparison is by reference, we cannot compare whole log records
+                    //interstingly, at more detailed comparison differ in ticks prevents comparison of UtcRunTime,
+                    //but the tick difference does not affect full log record comparison
+                    Expect.isTrue (inLog.AssembliesOrVersion = outLog.AssembliesOrVersion) "Expected AssembliesOrVersion"
+                    Expect.isTrue (inLog.ByteInfo = outLog.ByteInfo) "Expected ByteInfo"
+                    Expect.isTrue (inLog.Caller = outLog.Caller) "Expected Caller"
+                    Expect.isTrue (inLog.Counter = outLog.Counter) "Expected Counter"
+                    Expect.isTrue (sprintf "%A" inLog.Exception = sprintf "%A" outLog.Exception) 
+                        (sprintf "inException = %A outException = %A" inLog.Exception outLog.Exception)
+                    Expect.isTrue (inLog.ExceptionString = outLog.ExceptionString) "Expected ExceptionString"
+                    Expect.isTrue (inLog.Level = outLog.Level) "Expected Level"
+                    Expect.isTrue (inLog.MachineName = outLog.MachineName) "Expected MachineName"
+                    Expect.isTrue (inLog.Message = outLog.Message) "Expected Message"
+                    Expect.isTrue (inLog.Process = outLog.Process) "Expected Process"
+                    Expect.isTrue (inLog.StringInfo = outLog.StringInfo) "Expected StringInfo"
+                    Expect.isTrue (inLog.UtcTime = outLog.UtcTime) "Expected UtcTime"
+                    Expect.isTrue (inLog.UtcRunTime.Second = outLog.UtcRunTime.Second) 
+                        (sprintf "inLogSecond = %i outLogSecond = %i" inLog.UtcRunTime.Second outLog.UtcRunTime.Second)
+                    Expect.isTrue (inLog.UtcRunTime.Millisecond = outLog.UtcRunTime.Millisecond) 
+                        (sprintf "inMillisecond = %i outMillisecond = %i" inLog.UtcRunTime.Millisecond outLog.UtcRunTime.Millisecond)
+                    //Expect.isTrue (inLog.UtcRunTime.Ticks = outLog.UtcRunTime.Ticks) 
+                    //    (sprintf "inTicks = %i outTicks = %i" inLog.UtcRunTime.Ticks outLog.UtcRunTime.Ticks)
+
+
+            testCase "select by level" <| fun () ->
+                let testDate = DateTime.UtcNow.AddHours(-5.)
+                let inLog = {log1 with 
+                                UtcRunTime = testDate
+                                UtcTime = testDate }
+                
+                let predicate = {predicate1 with
+                                  StartDate = testDate.AddMinutes(-1.)
+                                  EndDate = testDate.AddMinutes(1.) |> Some 
+                                  LogLevels = [LogLevel.Info; LogLevel.Debug]}
+
+                IO.insert azureConnectionString inLog
+                let outLog = 
+                    IO.list predicate azureConnectionString
+                    |> Seq.filter (fun x-> x.UtcTime = testDate)
+                    |> Seq.head
+
+                Expect.isTrue (inLog = outLog) "Expected True"
+
+            testCase "select by level not found" <| fun () ->
+                let testDate = DateTime.UtcNow.AddHours(-4.)
+                let inLog = {log1 with 
+                                UtcRunTime = testDate
+                                UtcTime = testDate }
+                
+                let predicate = {predicate1 with
+                                  StartDate = testDate.AddMinutes(-1.)
+                                  EndDate = testDate.AddMinutes(1.) |> Some 
+                                  LogLevels = [LogLevel.Error; LogLevel.Debug]}
+
+                IO.insert azureConnectionString inLog
+                let outLogLength = 
+                    IO.list predicate azureConnectionString
+                    |> Seq.filter (fun x-> x.UtcTime = testDate)
+                    |> Seq.length
+
+                Expect.isTrue (outLogLength = 0) "Expected True"
         ]
 

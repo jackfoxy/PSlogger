@@ -1,5 +1,6 @@
 FSharp.Core
 FSharp.Configuration
+WindowsAzure.Storage 
 Expecto
 Expecto.BenchmarkDotNet
 Expecto.FsCheck

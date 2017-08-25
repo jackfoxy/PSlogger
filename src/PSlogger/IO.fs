@@ -264,15 +264,27 @@ module IO =
         member val Message = log.Message  with get, set
         member val AssembliesOrVersion = log.AssembliesOrVersion  with get, set
         member val MachineName = log.MachineName  with get, set
-        member val Process = log.Process  with get, set
+        member val Process = 
+            match log.Process with
+            | Some x -> x
+            | None -> null
+            with get, set
         member val ByteInfo = 
             match log.ByteInfo with
             | Some x -> x
             | None -> [|new Byte()|] 
             with get, set
-        member val StringInfo = log.StringInfo  with get, set
+        member val StringInfo = 
+            match log.StringInfo with
+            | Some x -> x
+            | None -> null
+            with get, set
         member val Exception = exceptionSerialize log.Exception  with get, set
-        member val ExceptionString = log.ExceptionString  with get, set
+        member val ExceptionString = 
+            match log.ExceptionString with
+            | Some x -> x
+            | None -> null
+            with get, set
 
     let logFromInternal (caller, rowkey, internalLog) =
         
@@ -291,7 +303,7 @@ module IO =
             | [|0uy|] -> None
             | _ -> Some internalLog.ByteInfo
         StringInfo = internalLog.StringInfo
-        Exception = None //exceptionDeserialize internalLog.Exception
+        Exception = exceptionDeserialize internalLog.Exception
         ExceptionString = internalLog.ExceptionString
         }
 

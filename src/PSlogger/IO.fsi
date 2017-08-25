@@ -1,7 +1,6 @@
 ﻿namespace PSlogger
 
 open System
-//open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 open System.Threading.Tasks
 
@@ -79,23 +78,23 @@ module IO =
       member ByteInfo : byte []
       member Counter : int
       member Exception : byte []
-      member ExceptionString : string option
+      member ExceptionString : string 
       member Level : string
       member MachineName : string
       member Message : string
-      member Process : string option
-      member StringInfo : string option
+      member Process : string
+      member StringInfo : string 
       member UtcTime : System.DateTime
       member AssembliesOrVersion : string with set
       member ByteInfo : byte [] with set
       member Counter : int with set
       member Exception : byte [] with set
-      member ExceptionString : string option with set
+      member ExceptionString : string  with set
       member Level : string with set
       member MachineName : string with set
       member Message : string with set
-      member Process : string option with set
-      member StringInfo : string option with set
+      member Process : string with set
+      member StringInfo : string  with set
       member UtcTime : System.DateTime with set
    
     val insert : azureConnectionString : string -> log : Log -> unit

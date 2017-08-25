@@ -2,6 +2,8 @@
 
 Please provide a succinct description of your issue.
 
+If possible link to simple code sample that reproduces the issue.
+
 ### Repro steps
 
 Please provide the steps required to reproduce the problem
