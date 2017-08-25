@@ -3,20 +3,12 @@
 open System
 open System.Configuration
 open PSlogger
-//open Microsoft.FSharp.Quotations
-//open QuotationCompiler
-  
 
 module console1 =
 
     let mutable cont = true
     let mutable (input : string []) = [||] 
 
-//    let exprRaw = <@fun x -> x |> List.map (fun x -> x.Company) |> List.choose id |> List.distinct @>
-    //let exprRaw = <@fun x -> x |> List.map (fun x -> x.MachineName) |> List.distinct @>
-    
-    //let f : unit -> Log list -> string list = QuotationCompiler.ToFunc exprRaw
-   
     let processInput () =
 
         if input.Length > 0 && input.[0].ToLower() = "q" then cont <- false

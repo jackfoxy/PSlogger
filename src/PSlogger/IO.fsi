@@ -74,28 +74,17 @@ module IO =
     type InternalLog =
       inherit TableEntity
       new : log:Log -> InternalLog
-      member AssembliesOrVersion : string
-      member ByteInfo : byte []
-      member Counter : int
-      member Exception : byte []
-      member ExceptionString : string 
-      member Level : string
-      member MachineName : string
-      member Message : string
-      member Process : string
-      member StringInfo : string 
-      member UtcTime : System.DateTime
-      member AssembliesOrVersion : string with set
-      member ByteInfo : byte [] with set
-      member Counter : int with set
-      member Exception : byte [] with set
-      member ExceptionString : string  with set
-      member Level : string with set
-      member MachineName : string with set
-      member Message : string with set
-      member Process : string with set
-      member StringInfo : string  with set
-      member UtcTime : System.DateTime with set
+      member AssembliesOrVersion : string with get, set
+      member ByteInfo : byte [] with get, set
+      member Counter : int with get, set
+      member Exception : byte [] with get, set
+      member ExceptionString : string  with get, set
+      member Level : string with get, set
+      member MachineName : string with get, set
+      member Message : string with get, set
+      member Process : string with get, set
+      member StringInfo : string  with get, set
+      member UtcTime : System.DateTime with get, set
    
     val insert : azureConnectionString : string -> log : Log -> logNamePrefix : string -> unit
 
