@@ -398,7 +398,7 @@ module IO =
                 if startDate.EndsWith("00:00:00.000") then
                     startDate.Replace(" 00:00:00.000", ""), (dateTimeString (predicate.StartDate.AddDays(1.))).Replace(" 00:00:00.000", "")
                 else
-                    startDate, (dateTimeString (predicate.StartDate.AddMilliseconds(1.)))
+                    startDate, (dateTimeString (predicate.StartDate.AddSeconds(1.)))
 
             TableQuery.CombineFilters(
                 TableQuery.GenerateFilterCondition(

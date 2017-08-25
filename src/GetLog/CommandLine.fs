@@ -33,7 +33,7 @@ module CommandLine =
             interface IArgParserTemplate with
                 member s.Usage =
                     match s with
-                    | EQ _ -> "equals datetime"
+                    | EQ _ -> "equals datetime, e.g. \"08/23/2017 14:57:32\" or 08/23/2017"
                     | GT _ -> "greater than datetime"
                     | LT _ -> "less than datetime"
                     | Between _ -> "between datetimes, comma separated"
@@ -82,7 +82,11 @@ module CommandLine =
         let d = date.Replace("\'", "").Replace("\"", "")
         match DateTime.TryParse d with
         | true, dt -> dt 
-        | _ -> invalidArg msg date
+        | _ -> 
+            match DateTime.TryParse (sprintf "%s 0:0:0" d) with
+            | true, dt -> dt 
+            | _ -> 
+                invalidArg msg date
 
     let getEq (commandLine : ParseResults<CLIArguments>) =
         try

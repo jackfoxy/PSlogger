@@ -28,19 +28,34 @@ module console1 =
                 printfn "%s" e.Message
                 printfn "%s" parsedCommand.Usage
             | None -> 
-                let azureConnectionString = ConfigurationManager.ConnectionStrings.["DashboardLogsAzureStorage"].ConnectionString
+                let azureConnectionString = ConfigurationManager.ConnectionStrings.["AzureStorage"].ConnectionString
                 let logs = IO.list parsedCommand.Predicate.Value azureConnectionString "logs"
             
                 logs
                 |> Seq.iter (fun x -> 
-                    let line = sprintf "%s %O %O %O %s %s" x.Caller x.UtcRunTime x.Level x.UtcTime (defaultArg x.Process "") x.Message
+                    let errorMsg =
+                        match x.Exception with
+                        | Some e -> e.Message
+                        | None -> String.Empty
+
+                    let line = 
+                            sprintf "%s | %O | %O | %O | %s | %s | %s" 
+                                x.Caller x.UtcRunTime x.Level x.UtcTime (defaultArg x.Process "") x.Message errorMsg
                     printfn "%s" line)
+
+                if parsedCommand.Predicate.Value.Operator = PredicateOperator.EQ
+                    && Seq.length logs > 0
+                    && (Seq.head logs).Exception.IsSome then
+                        printfn ""
+                        printfn "%s" <|Common.formatExceptionDisplay (Seq.head logs).Exception.Value
+                else
+                    ()
+            printfn ""
+            printfn "(q and enter twice to exit)"
             cont <- true
 
     [<EntryPoint>]
     let main argv = 
-
-        printfn "q and enter twice to exit"
         input <- argv
 
         while cont do
@@ -62,11 +77,6 @@ module console1 =
                 |> snd
                 |> List.rev
                 |> Array.ofList
-            printfn "%A" input
 
-
-        printfn "Hit any key to exit."
-        System.Console.ReadKey() |> ignore
-
-        printf "%s" "good-bye"
+        printfn "%s" "good-bye"
         0
