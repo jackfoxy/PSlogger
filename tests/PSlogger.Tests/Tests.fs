@@ -3,9 +3,13 @@ namespace PSlogger.Tests
 open Expecto
 open PSlogger
 open System
-open Microsoft.WindowsAzure.Storage.Table
+open FSharp.Configuration
+
+type Settings = AppSettings<"app.config">
 
 module Tests =
+
+    let azureConnectionString = Settings.ConnectionStrings.AzureStorage
 
     let log1 =
         { 
@@ -34,7 +38,7 @@ module Tests =
         }
 
     [<Tests>]
-    let testSimpleTests azureConnectionString =
+    let testSimpleTests =
 
         testList "write and read log record" [
             testCase "equality no optional" <| fun () ->

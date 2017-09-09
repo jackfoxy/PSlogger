@@ -4,18 +4,19 @@ open Expecto
 open FSharp.Configuration
 open System.Diagnostics
 
-type Settings = AppSettings<"app.config">
-
 module RunTests =
+
+    type Settings = AppSettings<"app.config">
 
     [<EntryPoint>]
     let main args =
 
-        let azureConnectionString = Settings.ConnectionStrings.AzureStorage
+        if Settings.ConnectionStrings.AzureStorage.ToLower() = "usedevelopmentstorage=true" then
+            Process.Start(@"C:\Program Files\Microsoft SDKs\Azure\Emulator\csrun", "/devstore").WaitForExit()
+        else
+            ()
 
-        Process.Start(@"C:\Program Files\Microsoft SDKs\Azure\Emulator\csrun", "/devstore").WaitForExit();
-
-        Tests.runTestsWithArgs defaultConfig args (Tests.testSimpleTests azureConnectionString) |> ignore
+        Tests.runTestsWithArgs defaultConfig args Tests.testSimpleTests |> ignore
 
         0
 
