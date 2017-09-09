@@ -22,27 +22,40 @@ Documentation
   <div class="span1"></div>
 </div>
 
-The logger is a strongly typed system for asynchronous and synchronous logging of program messages from .NET programs to an Azure Table Storage data store. 
+The logger is a strongly typed system for asynchronous and synchronous logging of program messages from .NET programs to an Azure Table Storage data store.
+
+It can of course be used to log messages from anything, not just .NET software. The system's main feature is automatically organizing messages
+by run of a software assembly.
+
 
 Optimized for message retrieval by software execution
 -----------------------------------------------------
 
-It is optimized for a particular style of message logging. Specifically it is convenient for querying all messages for an arbitrary "run" of 
-software. For example:
+PSlogger is optimized for a particular style of message logging. Specifically it organizes messages for conveniently querying all messages for an 
+arbitrary run of a software assebly (program) in the correct order in which the messages were produced, upon which additional filters may be applied.
+
+For example:
 
 * a single request/response cycle
 
 * a specific run of a batch program
 
 It accomplished this by using the software assembly identifier (caller) as the partition key, and one timestamp (associated with the run) as the
-partial row key. Data is organized by daily tables. All of messages for a given run reside in the same daily table, regardless of when they were 
+partial row key. 
+
+Data is organized by daily tables. All messages for a given run reside in the same daily table, regardless of when they were 
 actually generated.
 
+Daily table organization makes message deletion efficient.
+
 Message retrieval by caller is also generaly fast, but due to the log deletion optimization retrieval over an excessive number of days will result
-in performance degradation, even to the point of unusable. Generally this is not a useful scenario. The logger is optimized for more common usage.
+in performance degradation, even to the point of unusability. Generally this is not a useful use case. The logger is optimized for more common case
+of searching for messages in a specific run.
 
 The repo solution includes the `GetLog` console app with examples of message retrieval. The [`Predicate`](reference/PSlogger-predicate.html) type 
-drives queries by run time.
+defines all the necessary query parameters.
+
+* ``Caller`` identifier of logging software assembly
 
 * ``Operator`` EQ, GT, LT, Between
 
@@ -50,15 +63,15 @@ drives queries by run time.
 
 * ``EndDate`` only used for Between
 
-* ``Caller`` identifier of logging software assembly
-
 * ``LogLevels`` list of requested log levels, empty list for all
 
 Guaranteed ordering, even with async inserts
 --------------------------------------------
 
-The calling software can either manage the log counter, or take advantage of the `CountingLog` type which will manage the counter. This assures 
-messages can be ordered by their temporal generation, even when inserted asynchronously.
+There is also a timestamp associated with each message, but asynchronous writes and other reasons may make this unreliable for message ordering.
+For message ordering the system provides a log counter. The calling software can either manage the log counter, or take advantage of the `CountingLog` 
+type which will manage the counter. This assures messages can be ordered by their temporal generation, even when inserted asynchronously. It is not
+necessary to maintain the counter. In that case order falls back to the message generation timestamp.
 
 Optimized for old message deletion
 ----------------------------------
@@ -71,6 +84,9 @@ Suggested Usage
 
 The logger records messages and data from program runs (transactions, batch runs, etc.) to determine program health, timely exectution, 
 verify processing, and record exceptions.
+
+It is also usefule for long running process like daemons or services that have a sleep/awake cycle. In that case the run timestamp should be
+associated with each wake cycle.
 
 In general enough information should be logged so that a reasonable query strategy on the data store can determine:
 
@@ -102,7 +118,7 @@ Use the ``CountingLog`` type as a log template for the duration of the program t
 
 * ``ByteInfo`` optional, any custom data to further specify program state.
 
-* ``Exception`` optional, System.Exception
+* ``Exception`` optional, System.Exception (PSlogger stores the entire .NET exception including inner exceptions)
 
 * ``ExceptionString`` optional, exception in string format, e.g. for logging from REST interface
 
@@ -152,10 +168,8 @@ let logException (initLog : CountingLog) connString (exn : Exception) currentRec
                             StringInfo = Some currentRecord
                             }  "MyLogPrefix"
 (**
-Samples & documentation
+Documentation
 -----------------------
-
- * [Tutorial](tutorial.html) contains a further explanation of this sample library.
 
  * [API Reference](reference/index.html) contains automatically generated documentation for all types, modules
    and functions in the library. 
