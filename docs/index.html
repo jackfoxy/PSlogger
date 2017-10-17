@@ -46,36 +46,46 @@
   <div class="span1"></div>
 </div>
 <p>The logger is a strongly typed system for asynchronous and synchronous logging of program messages from .NET programs to an Azure Table Storage data store.</p>
+<p>It can of course be used to log messages from anything, not just .NET software. The system's main feature is automatically organizing messages
+by run of a software assembly.</p>
 <h2><a name="Optimized-for-message-retrieval-by-software-execution" class="anchor" href="#Optimized-for-message-retrieval-by-software-execution">Optimized for message retrieval by software execution</a></h2>
-<p>It is optimized for a particular style of message logging. Specifically it is convenient for querying all messages for an arbitrary "run" of
-software. For example:</p>
+<p>PSlogger is optimized for a particular style of message logging. Specifically it organizes messages for conveniently querying all messages for an
+arbitrary run of a software assebly (program) in the correct order in which the messages were produced, upon which additional filters may be applied.</p>
+<p>For example:</p>
 <ul>
 <li>a single request/response cycle</li>
 <li>a specific run of a batch program</li>
 </ul>
 <p>It accomplished this by using the software assembly identifier (caller) as the partition key, and one timestamp (associated with the run) as the
-partial row key. Data is organized by daily tables. All of messages for a given run reside in the same daily table, regardless of when they were
+partial row key.</p>
+<p>Data is organized by daily tables. All messages for a given run reside in the same daily table, regardless of when they were
 actually generated.</p>
+<p>Daily table organization makes message deletion efficient.</p>
 <p>Message retrieval by caller is also generaly fast, but due to the log deletion optimization retrieval over an excessive number of days will result
-in performance degradation, even to the point of unusable. Generally this is not a useful scenario. The logger is optimized for more common usage.</p>
+in performance degradation, even to the point of unusability. Generally this is not a useful use case. The logger is optimized for more common case
+of searching for messages in a specific run.</p>
 <p>The repo solution includes the <code>GetLog</code> console app with examples of message retrieval. The <a href="reference/PSlogger-predicate.html"><code>Predicate</code></a> type
-drives queries by run time.</p>
+defines all the necessary query parameters.</p>
 <ul>
+<li><p><code>Caller</code> identifier of logging software assembly</p></li>
 <li><p><code>Operator</code> EQ, GT, LT, Between</p></li>
 <li><p><code>StartDate</code> run time</p></li>
 <li><p><code>EndDate</code> only used for Between</p></li>
-<li><p><code>Caller</code> identifier of logging software assembly</p></li>
 <li><p><code>LogLevels</code> list of requested log levels, empty list for all</p></li>
 </ul>
 <h2><a name="Guaranteed-ordering-even-with-async-inserts" class="anchor" href="#Guaranteed-ordering-even-with-async-inserts">Guaranteed ordering, even with async inserts</a></h2>
-<p>The calling software can either manage the log counter, or take advantage of the <code>CountingLog</code> type which will manage the counter. This assures
-messages can be ordered by their temporal generation, even when inserted asynchronously.</p>
+<p>There is also a timestamp associated with each message, but asynchronous writes and other reasons may make this unreliable for message ordering.
+For message ordering the system provides a log counter. The calling software can either manage the log counter, or take advantage of the <code>CountingLog</code>
+type which will manage the counter. This assures messages can be ordered by their temporal generation, even when inserted asynchronously. It is not
+necessary to maintain the counter. In that case order falls back to the message generation timestamp.</p>
 <h2><a name="Optimized-for-old-message-deletion" class="anchor" href="#Optimized-for-old-message-deletion">Optimized for old message deletion</a></h2>
 <p>Storage may be cheap, but it is not free, and table row deletion is slow. Physical storage organization by day allows the <code>purgeBeforeDaysBack</code>
 function to simply drop tables, a much more efficient operation.</p>
 <h2><a name="Suggested-Usage" class="anchor" href="#Suggested-Usage">Suggested Usage</a></h2>
 <p>The logger records messages and data from program runs (transactions, batch runs, etc.) to determine program health, timely exectution,
 verify processing, and record exceptions.</p>
+<p>It is also usefule for long running process like daemons or services that have a sleep/awake cycle. In that case the run timestamp should be
+associated with each wake cycle.</p>
 <p>In general enough information should be logged so that a reasonable query strategy on the data store can determine:</p>
 <ul>
 <li>Is the process alive. (Is it executing on schedule, performing intended processes, and creating expected outputs?)</li>
@@ -97,7 +107,7 @@ Use the <code>CountingLog</code> type as a log template for the duration of the 
 <li><p><code>Process</code> optional, process within program generating the message</p></li>
 <li><p><code>StringInfo</code> optional, any custom data to further specify program state.</p></li>
 <li><p><code>ByteInfo</code> optional, any custom data to further specify program state.</p></li>
-<li><p><code>Exception</code> optional, System.Exception</p></li>
+<li><p><code>Exception</code> optional, System.Exception (PSlogger stores the entire .NET exception including inner exceptions)</p></li>
 <li><p><code>ExceptionString</code> optional, exception in string format, e.g. for logging from REST interface</p></li>
 </ul>
 <h2><a name="Examples" class="anchor" href="#Examples">Examples</a></h2>
@@ -182,12 +192,11 @@ Use the <code>CountingLog</code> type as a log template for the duration of the 
 </code></pre></td>
 </tr>
 </table>
-<h2><a name="Samples-amp-documentation" class="anchor" href="#Samples-amp-documentation">Samples &amp; documentation</a></h2>
+<h2><a name="Documentation" class="anchor" href="#Documentation">Documentation</a></h2>
 <ul>
-<li><p><a href="tutorial.html">Tutorial</a> contains a further explanation of this sample library.</p></li>
 <li>
-<p><a href="reference/index.html">API Reference</a> contains automatically generated documentation for all types, modules
-and functions in the library.</p>
+<a href="reference/index.html">API Reference</a> contains automatically generated documentation for all types, modules
+and functions in the library.
 </li>
 </ul>
 <h2><a name="Contributing-and-copyright" class="anchor" href="#Contributing-and-copyright">Contributing and copyright</a></h2>
@@ -211,9 +220,6 @@ redistribution for both commercial and non-commercial purposes. For more informa
             <li><a href="https://github.com/jackfoxy/PSlogger">Source Code on GitHub</a></li>
             <li><a href="/PSlogger/license.html">License</a></li>
             <li><a href="/PSlogger/release-notes.html">Release Notes</a></li>
-            
-            <li class="nav-header">Getting started</li>
-            <li><a href="/PSlogger/tutorial.html">Sample tutorial</a></li>
 
             <li class="nav-header">Documentation</li>
             <li><a href="/PSlogger/reference/index.html">API Reference</a></li>

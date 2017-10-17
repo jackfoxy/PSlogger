@@ -4,7 +4,7 @@ open System
 open System.Configuration
 open PSlogger
 
-module console1 =
+module Console =
 
     let mutable cont = true
     let mutable (input : string []) = [||] 
@@ -50,25 +50,27 @@ module console1 =
     let main argv = 
         input <- argv
 
+        let readLine =
+            Console.ReadLine().Split ' '
+            |> Array.fold (fun (quoted, ls) t ->
+                match quoted with
+                | Some quote ->
+                    if t.EndsWith("\"") || t.EndsWith("\'") then
+                        (None, (quote + " " + (t.Replace("\"", "").Replace("\'", "")))::ls)
+                    else
+                        ((Some (quote + " " + t)), ls)
+                | None -> 
+                    if t.StartsWith("\"") then
+                        ((Some (t.Replace("\"", "").Replace("\'", ""))), ls) 
+                    else 
+                        (None, (t::ls))) (None, [])
+            |> snd
+            |> List.rev
+            |> Array.ofList
+
         while cont do
             processInput ()
-            input <- 
-                Console.ReadLine().Split ' '
-                |> Array.fold (fun (quoted, ls) t ->
-                    match quoted with
-                    | Some quote ->
-                        if t.EndsWith("\"") || t.EndsWith("\'") then
-                            (None, (quote + " " + (t.Replace("\"", "").Replace("\'", "")))::ls)
-                        else
-                            ((Some (quote + " " + t)), ls)
-                    | None -> 
-                        if t.StartsWith("\"") then
-                            ((Some (t.Replace("\"", "").Replace("\'", ""))), ls) 
-                        else 
-                            (None, (t::ls))) (None, [])
-                |> snd
-                |> List.rev
-                |> Array.ofList
+            input <- readLine
 
         printfn "%s" "good-bye"
         0
