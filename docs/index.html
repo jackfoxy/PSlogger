@@ -124,11 +124,9 @@ Use the <code>CountingLog</code> type as a log template for the duration of the 
 <span class="l">10: </span>
 <span class="l">11: </span>
 <span class="l">12: </span>
-<span class="l">13: </span>
 </pre></td>
 <td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">open</span> <span class="i">System</span>
 <span class="k">open</span> <span class="i">PSlogger</span>
-<span class="k">open</span> <span class="i">Microsoft</span><span class="o">.</span><span class="i">WindowsAzure</span><span class="o">.</span><span class="i">Storage</span><span class="o">.</span><span class="i">Table</span>
 
 <span class="k">let</span> <span class="i">initLog</span> <span class="i">processName</span> <span class="o">=</span>
 
@@ -138,7 +136,7 @@ Use the <code>CountingLog</code> type as a log template for the duration of the 
         <span class="k">let</span> <span class="i">assembly</span> <span class="o">=</span> <span class="i">System</span><span class="o">.</span><span class="i">Reflection</span><span class="o">.</span><span class="i">Assembly</span><span class="o">.</span><span class="i">GetExecutingAssembly</span>()
         <span class="i">assembly</span><span class="o">.</span><span class="i">FullName</span>
 
-    <span class="i">CountingLog</span>(<span class="s">&quot;Dashboard&quot;</span>, <span class="i">utcTime</span>, <span class="i">LogLevel</span><span class="o">.</span><span class="i">Info</span>, <span class="i">assemblyFullName</span>, <span class="i">Environment</span><span class="o">.</span><span class="i">MachineName</span>, (<span class="i">Some</span> <span class="i">processName</span>))
+    <span class="i">CountingLog</span>(<span class="s">&quot;Dashboard&quot;</span>, <span class="i">utcTime</span>, <span class="i">LogLevel</span><span class="o">.</span><span class="i">Info</span>, <span class="i">assemblyFullName</span>, <span class="i">Environment</span><span class="o">.</span><span class="i">MachineName</span>, <span class="i">processName</span>)
 </code></pre></td>
 </tr>
 </table>
@@ -155,7 +153,7 @@ Use the <code>CountingLog</code> type as a log template for the duration of the 
 <span class="l">10: </span>
 <span class="l">11: </span>
 </pre></td>
-<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span class="i">logMessage</span> (<span class="i">initLog</span> <span class="o">:</span> <span class="i">CountingLog</span>) <span class="i">connString</span> <span class="i">company</span> <span class="i">curretnProcess</span> <span class="i">message</span> <span class="i">addlInfo</span>  <span class="o">=</span>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span class="i">logMessage</span> (<span class="i">initLog</span> <span class="o">:</span> <span class="i">CountingLog</span>) <span class="i">connString</span> <span class="i">curretnProcess</span> <span class="i">message</span> <span class="i">addlInfo</span>  <span class="o">=</span>
     
     <span class="i">IO</span><span class="o">.</span><span class="i">insertAsync</span> <span class="i">connString</span> {<span class="i">initLog</span><span class="o">.</span><span class="i">Log</span> <span class="k">with</span> 
                                 <span class="i">UtcTime</span> <span class="o">=</span> <span class="i">DateTime</span><span class="o">.</span><span class="i">UtcNow</span>;

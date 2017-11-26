@@ -3,7 +3,7 @@
 // it to define helpers that you do not want to show in the documentation.
 #I "../../src/PSlogger/bin/Debug"
 #r "../../Packages/WindowsAzure.Storage/lib/net45/Microsoft.WindowsAzure.Storage.dll"
-#r "PSlogger.dll"
+#r "../../bin/PSlogger/PSlogger.dll"
 
 (**
 PSlogger
@@ -130,7 +130,6 @@ Initializing a ``CountingLog`` template to generate messages.
 *)
 open System
 open PSlogger
-open Microsoft.WindowsAzure.Storage.Table
 
 let initLog processName =
 
@@ -140,11 +139,11 @@ let initLog processName =
         let assembly = System.Reflection.Assembly.GetExecutingAssembly()
         assembly.FullName
 
-    CountingLog("Dashboard", utcTime, LogLevel.Info, assemblyFullName, Environment.MachineName, (Some processName))
+    CountingLog("Dashboard", utcTime, LogLevel.Info, assemblyFullName, Environment.MachineName, processName)
 (**
 Writing messages.
 *)
-let logMessage (initLog : CountingLog) connString company curretnProcess message addlInfo  =
+let logMessage (initLog : CountingLog) connString curretnProcess message addlInfo  =
     
     IO.insertAsync connString {initLog.Log with 
                                 UtcTime = DateTime.UtcNow;
