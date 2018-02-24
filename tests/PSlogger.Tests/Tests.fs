@@ -51,9 +51,9 @@ module Tests =
                                   StartDate = testDate.AddMinutes(-1.)
                                   EndDate = testDate.AddMinutes(1.) |> Some }
 
-                IO.insert azureConnectionString inLog "logs"
+                insert azureConnectionString inLog "logs"
                 let outLog = 
-                    IO.list predicate azureConnectionString "logs"
+                    list predicate azureConnectionString "logs"
                     |> Seq.filter (fun x-> x.UtcTime = testDate)
                     |> Seq.head
 
@@ -69,13 +69,13 @@ module Tests =
                                   StartDate = testDate.AddMinutes(-1.)
                                   EndDate = testDate.AddMinutes(1.) |> Some }
 
-                IO.insertAsync azureConnectionString inLog "logs"
+                insertAsync azureConnectionString inLog "logs"
                 |> Async.AwaitTask
                 |> Async.RunSynchronously
                 |> ignore
 
                 let outLog = 
-                    IO.list predicate azureConnectionString "logs"
+                    list predicate azureConnectionString "logs"
                     |> Seq.filter (fun x-> x.UtcTime = testDate)
                     |> Seq.head
 
@@ -101,9 +101,9 @@ module Tests =
                                       StartDate = testDate.AddMinutes(-1.)
                                       EndDate = testDate.AddMinutes(1.) |> Some }
 
-                    IO.insert azureConnectionString inLog "logs"
+                    insert azureConnectionString inLog "logs"
                     let outLog = 
-                        IO.list predicate azureConnectionString "logs"
+                        list predicate azureConnectionString "logs"
                         |> Seq.filter (fun x-> x.UtcTime = testDate)
                         |> Seq.head
 
@@ -142,9 +142,9 @@ module Tests =
                                   EndDate = testDate.AddMinutes(1.) |> Some 
                                   LogLevels = [LogLevel.Info; LogLevel.Debug]}
 
-                IO.insert azureConnectionString inLog "logs"
+                insert azureConnectionString inLog "logs"
                 let outLog = 
-                    IO.list predicate azureConnectionString "logs"
+                    list predicate azureConnectionString "logs"
                     |> Seq.filter (fun x-> x.UtcTime = testDate)
                     |> Seq.head
 
@@ -161,9 +161,9 @@ module Tests =
                                   EndDate = testDate.AddMinutes(1.) |> Some 
                                   LogLevels = [LogLevel.Error; LogLevel.Debug]}
 
-                IO.insert azureConnectionString inLog "logs"
+                insert azureConnectionString inLog "logs"
                 let outLogLength = 
-                    IO.list predicate azureConnectionString "logs"
+                    list predicate azureConnectionString "logs"
                     |> Seq.filter (fun x-> x.UtcTime = testDate)
                     |> Seq.length
 

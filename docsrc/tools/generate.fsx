@@ -137,9 +137,11 @@ let buildDocumentation () =
 
 // Generate
 copyFiles()
-#if HELP
+//#if HELP
+printfn "buildDocumentation()"
 buildDocumentation()
-#endif
-#if REFERENCE
+//#endif
+//#if REFERENCE
+printfn "buildReference()"
 buildReference()
-#endif
+//#endif

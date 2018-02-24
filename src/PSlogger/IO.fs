@@ -1,4 +1,4 @@
-﻿namespace PSlogger
+﻿module PSlogger
 
 open System
 open Microsoft.WindowsAzure.Storage
@@ -189,312 +189,310 @@ type ClientTable =
 
 exception LogInsertException of string
 
-module IO =
+let exceptionSerialize (exc : System.Exception option) =
+    match exc with
+    | Some x ->
+        let binary = FsPickler.CreateBinarySerializer()
+        binary.Pickle x
+    | None -> [|new Byte()|]
 
-    let exceptionSerialize (exc : System.Exception option) =
-        match exc with
-        | Some x ->
-            let binary = FsPickler.CreateBinarySerializer()
-            binary.Pickle x
-        | None -> [|new Byte()|]
+let exceptionDeserialize (exc : byte []) =
+    if exc.Length = 1 then None
+    else 
+        let binary = FsPickler.CreateBinarySerializer()
+        Some (binary.UnPickle<Exception> exc)
 
-    let exceptionDeserialize (exc : byte []) =
-        if exc.Length = 1 then None
-        else 
-            let binary = FsPickler.CreateBinarySerializer()
-            Some (binary.UnPickle<Exception> exc)
+let dateTimeString (dateTime : DateTime) =
+    sprintf "%s-%s-%s %s:%s:%s.%s"
+        (dateTime.Year.ToString())
+        (dateTime.Month.ToString().PadLeft(2, '0'))
+        (dateTime.Day.ToString().PadLeft(2, '0')) 
+        (dateTime.Hour.ToString().PadLeft(2, '0'))
+        (dateTime.Minute.ToString().PadLeft(2, '0'))
+        (dateTime.Second.ToString().PadLeft(2, '0'))
+        (dateTime.Millisecond.ToString().PadLeft(3, '0'))
 
-    let dateTimeString (dateTime : DateTime) =
-        sprintf "%s-%s-%s %s:%s:%s.%s"
-            (dateTime.Year.ToString())
-            (dateTime.Month.ToString().PadLeft(2, '0'))
-            (dateTime.Day.ToString().PadLeft(2, '0')) 
-            (dateTime.Hour.ToString().PadLeft(2, '0'))
-            (dateTime.Minute.ToString().PadLeft(2, '0'))
-            (dateTime.Second.ToString().PadLeft(2, '0'))
-            (dateTime.Millisecond.ToString().PadLeft(3, '0'))
+let dateTimeStringToDateTime (s : string) =
+    let s1 = s.Split ' '
+    let sMajor = s1.[0].Split '-'
+    let sMinor = s1.[1].Split ':'
+    let sVeryMinor = sMinor.[2].Split '.'
 
-    let dateTimeStringToDateTime (s : string) =
-        let s1 = s.Split ' '
-        let sMajor = s1.[0].Split '-'
-        let sMinor = s1.[1].Split ':'
-        let sVeryMinor = sMinor.[2].Split '.'
+    let year = int sMajor.[0]
+    let month = int sMajor.[1]
+    let day = int sMajor.[2]
+    let hour = int sMinor.[0]
+    let minute = int sMinor.[1]
+    let second = int sVeryMinor.[0]
+    let millisecond = int sVeryMinor.[1]
 
-        let year = int sMajor.[0]
-        let month = int sMajor.[1]
-        let day = int sMajor.[2]
-        let hour = int sMinor.[0]
-        let minute = int sMinor.[1]
-        let second = int sVeryMinor.[0]
-        let millisecond = int sVeryMinor.[1]
+    DateTime(year, month, day, hour, minute, second, millisecond)
 
-        DateTime(year, month, day, hour, minute, second, millisecond)
+[<Class>]
+type InternalLog (log : Log) =
+    inherit TableEntity(partitionKey = log.Caller, rowKey = dateTimeString log.UtcRunTime)
+    member val Counter = log.Counter with get, set
+    member val UtcTime = log.UtcTime  with get, set
+    member val Level = log.Level.ToString()  with get, set
+    member val Message = log.Message  with get, set
+    member val AssembliesOrVersion = log.AssembliesOrVersion  with get, set
+    member val MachineName = log.MachineName  with get, set
+    member val Process = 
+        match log.Process with
+        | Some x -> x
+        | None -> null
+        with get, set
+    member val ByteInfo = 
+        match log.ByteInfo with
+        | Some x -> x
+        | None -> [|new Byte()|] 
+        with get, set
+    member val StringInfo = 
+        match log.StringInfo with
+        | Some x -> x
+        | None -> null
+        with get, set
+    member val Exception = exceptionSerialize log.Exception  with get, set
+    member val ExceptionString = 
+        match log.ExceptionString with
+        | Some x -> x
+        | None -> null
+        with get, set
 
-    [<Class>]
-    type InternalLog (log : Log) =
-        inherit TableEntity(partitionKey = log.Caller, rowKey = dateTimeString log.UtcRunTime)
-        member val Counter = log.Counter with get, set
-        member val UtcTime = log.UtcTime  with get, set
-        member val Level = log.Level.ToString()  with get, set
-        member val Message = log.Message  with get, set
-        member val AssembliesOrVersion = log.AssembliesOrVersion  with get, set
-        member val MachineName = log.MachineName  with get, set
-        member val Process = 
-            match log.Process with
-            | Some x -> x
-            | None -> null
-            with get, set
-        member val ByteInfo = 
-            match log.ByteInfo with
-            | Some x -> x
-            | None -> [|new Byte()|] 
-            with get, set
-        member val StringInfo = 
-            match log.StringInfo with
-            | Some x -> x
-            | None -> null
-            with get, set
-        member val Exception = exceptionSerialize log.Exception  with get, set
-        member val ExceptionString = 
-            match log.ExceptionString with
-            | Some x -> x
-            | None -> null
-            with get, set
-
-    let tableNameFromTime logNamePrefix (time : DateTime) =
-        sprintf "%s%i%s%s" logNamePrefix time.Year (time.Month.ToString().PadLeft(2, '0')) (time.Day.ToString().PadLeft(2, '0'))
+let tableNameFromTime logNamePrefix (time : DateTime) =
+    sprintf "%s%i%s%s" logNamePrefix time.Year (time.Month.ToString().PadLeft(2, '0')) (time.Day.ToString().PadLeft(2, '0'))
         
-    let getClientTable (log : Log) azureConnectionString logNamePrefix =
-        let account = CloudStorageAccount.Parse azureConnectionString 
-        let tableClient  = account.CreateCloudTableClient()
+let getClientTable (log : Log) azureConnectionString logNamePrefix =
+    let account = CloudStorageAccount.Parse azureConnectionString 
+    let tableClient  = account.CreateCloudTableClient()
 
-        let tableName = tableNameFromTime logNamePrefix log.UtcRunTime
+    let tableName = tableNameFromTime logNamePrefix log.UtcRunTime
             
-        let table = tableClient.GetTableReference(tableName)
-        table.CreateIfNotExists() |> ignore
+    let table = tableClient.GetTableReference(tableName)
+    table.CreateIfNotExists() |> ignore
 
-        table
+    table
 
-    let goodInsert log (result : TableResult) = 
-        match result.HttpStatusCode with
-        | 201 -> ()
-        | 204 -> ()
-        | n -> 
-            raise (LogInsertException (sprintf "Insert into Partition : %s Row : %s HttpCode : %i" log.Caller (dateTimeString log.UtcRunTime) n))
+let goodInsert log (result : TableResult) = 
+    match result.HttpStatusCode with
+    | 201 -> ()
+    | 204 -> ()
+    | n -> 
+        raise (LogInsertException (sprintf "Insert into Partition : %s Row : %s HttpCode : %i" log.Caller (dateTimeString log.UtcRunTime) n))
  
-    let insert azureConnectionString log logNamePrefix =
-        let table = getClientTable log azureConnectionString logNamePrefix
+let insert azureConnectionString log logNamePrefix =
+    let table = getClientTable log azureConnectionString logNamePrefix
 
-        let internalLog = InternalLog(log)
-        let insertOp = TableOperation.Insert(internalLog)
+    let internalLog = InternalLog(log)
+    let insertOp = TableOperation.Insert(internalLog)
 
-        table.Execute(insertOp)
-        |> goodInsert log
+    table.Execute(insertOp)
+    |> goodInsert log
 
-    let insertAsync azureConnectionString log logNamePrefix =
-        let table = getClientTable log azureConnectionString logNamePrefix
+let insertAsync azureConnectionString log logNamePrefix =
+    let table = getClientTable log azureConnectionString logNamePrefix
 
-        let internalLog = InternalLog(log)
-        let insertOp = TableOperation.Insert(internalLog)
+    let internalLog = InternalLog(log)
+    let insertOp = TableOperation.Insert(internalLog)
 
-        table.ExecuteAsync(insertOp)
+    table.ExecuteAsync(insertOp)
 
-    let getTablesForPredicate (tableClient : CloudTableClient) predicate logNamePrefix = 
-        let startTableName = tableNameFromTime logNamePrefix predicate.StartDate
+let getTablesForPredicate (tableClient : CloudTableClient) predicate logNamePrefix = 
+    let startTableName = tableNameFromTime logNamePrefix predicate.StartDate
 
-        let storageAccountTables = 
-            tableClient.ListTables() 
-            |> List.ofSeq
-
-        let filterRows f =
-            storageAccountTables
-            |> List.filter (fun table -> 
-                f table.Name startTableName
-                )
-
-        match predicate.Operator with
-        | EQ -> 
-            filterRows (=)
-
-        | LT -> 
-            filterRows (<=)
-
-        | GT -> 
-            filterRows (>=)
-
-        | Between ->
-            let endTableName = tableNameFromTime logNamePrefix predicate.EndDate.Value
-
-            storageAccountTables
-            |> List.filter (fun table -> 
-                (table.Name >= startTableName) && (table.Name <= endTableName)
-                )
-        |> List.map (fun table -> table.Name)
-        |> List.sort
-
-    let timeFilter predicate =
-        let filterHighLow stringStartDate stringEndDate =
-            TableQuery.CombineFilters(
-                TableQuery.GenerateFilterCondition(
-                    "RowKey", QueryComparisons.GreaterThanOrEqual, stringStartDate),
-                TableOperators.And,
-                TableQuery.GenerateFilterCondition(
-                    "RowKey", QueryComparisons.LessThanOrEqual, stringEndDate) )
-
-        let filterOneDate comparison stringDate =
-            TableQuery.GenerateFilterCondition("RowKey", comparison, stringDate)
-
-        match predicate.Operator with
-        | EQ ->
-            let startDate = dateTimeString predicate.StartDate
-            let stringStartDate, stringEndDate = 
-                if startDate.EndsWith("00:00:00.000") then
-                    startDate.Replace(" 00:00:00.000", ""), (dateTimeString (predicate.StartDate.AddDays(1.))).Replace(" 00:00:00.000", "")
-                else
-                    startDate, (dateTimeString (predicate.StartDate.AddSeconds(1.)))
-            filterHighLow stringStartDate stringEndDate
-
-        | LT ->
-            filterOneDate QueryComparisons.LessThan <| dateTimeString predicate.StartDate
-
-        | GT ->
-            filterOneDate QueryComparisons.GreaterThan <| dateTimeString predicate.StartDate
-
-        | Between ->
-            filterHighLow (dateTimeString predicate.StartDate) (dateTimeString predicate.EndDate.Value)
-
-    let inline toOption x  = 
-        match x with
-        | true, v    -> Some v
-        | _   -> None
-
-    let parseLogLevel (dynamicTableEntity : DynamicTableEntity) =
-        match toOption <| dynamicTableEntity.Properties.TryGetValue("Level") with
-        | Some x -> x.StringValue
-        | None -> invalidArg "dynamicTableEntityToLogInternal" "Level"
-
-    let dynamicTableEntityToLogInternal (dynamicTableEntity : DynamicTableEntity) =
-        let counter =
-            match toOption <| dynamicTableEntity.Properties.TryGetValue("Counter") with
-            | Some x -> 
-                if x.Int32Value.HasValue then
-                    x.Int32Value.Value
-                else
-                    invalidArg "dynamicTableEntityToLogInternal" "Counter"
-            | None -> invalidArg "dynamicTableEntityToLogInternal" "Counter"
-        let utcTime =  
-            match toOption <| dynamicTableEntity.Properties.TryGetValue("UtcTime") with
-            | Some x -> 
-                if  x.DateTime.HasValue then 
-                    x.DateTime.Value
-                else
-                    invalidArg "dynamicTableEntityToLogInternal" "UtcTime"
-            | None -> invalidArg "dynamicTableEntityToLogInternal" "UtcTime"
-        let level = parseLogLevel dynamicTableEntity
-        let message =  
-            match toOption <| dynamicTableEntity.Properties.TryGetValue("Message") with
-            | Some x -> x.StringValue
-            | None -> invalidArg "dynamicTableEntityToLogInternal" "Message"
-        let assembliesOrVersion =  
-            match toOption <| dynamicTableEntity.Properties.TryGetValue("AssembliesOrVersion") with
-            | Some x -> x.StringValue
-            | None -> invalidArg "dynamicTableEntityToLogInternal" "AssembliesOrVersion"
-        let machineName =  
-            match toOption <| dynamicTableEntity.Properties.TryGetValue("MachineName") with
-            | Some x -> x.StringValue
-            | None -> invalidArg "dynamicTableEntityToLogInternal" "MachineName"
-        let process' =  
-            match toOption <| dynamicTableEntity.Properties.TryGetValue("Process") with
-            | Some x -> Some x.StringValue
-            | None -> None
-        let byteInfo =  
-            match toOption <| dynamicTableEntity.Properties.TryGetValue("ByteInfo") with
-            | Some x -> x.BinaryValue
-            | None -> invalidArg "dynamicTableEntityToLogInternal" "ByteInfo"
-        let stringInfo =  
-            match toOption <| dynamicTableEntity.Properties.TryGetValue("StringInfo") with
-            | Some x -> Some x.StringValue
-            | None -> None
-        let exception' =  
-            match toOption <| dynamicTableEntity.Properties.TryGetValue("Exception") with
-            | Some x -> x.BinaryValue
-            | None -> invalidArg "dynamicTableEntityToLogInternal" "Exception"
-        let exceptionString =  
-            match toOption <| dynamicTableEntity.Properties.TryGetValue("ExceptionString") with
-            | Some x -> Some x.StringValue
-            | None -> None
-
-        { 
-        Caller = dynamicTableEntity.PartitionKey
-        UtcRunTime = dateTimeStringToDateTime dynamicTableEntity.RowKey
-        UtcTime = utcTime
-        Counter = counter
-        Level = LogLevel.Parse level
-        Message = message
-        AssembliesOrVersion = assembliesOrVersion
-        MachineName = machineName
-        Process = process'
-        ByteInfo =
-            match byteInfo with
-            | [|0uy|] -> None
-            | _ -> Some byteInfo
-        StringInfo = stringInfo
-        Exception = exceptionDeserialize exception'
-        ExceptionString = exceptionString
-        }
-
-    let listLogsOneDay (tableClient : CloudTableClient) tableName (tableStorageQuery : TableQuery) (predicate : Predicate) =
-        let table = tableClient.GetTableReference(tableName)
-        if table.Exists() then
-            if predicate.LogLevels.IsEmpty then
-                table.ExecuteQuery(tableStorageQuery)
-                |> Seq.map dynamicTableEntityToLogInternal
-            else
-                table.ExecuteQuery(tableStorageQuery)
-                |> Seq.filter (fun t -> 
-                        List.contains (LogLevel.Parse (parseLogLevel t)) predicate.LogLevels)
-                |> Seq.map dynamicTableEntityToLogInternal
-        else
-            Seq.empty
-        
-    let list (predicate : Predicate) azureConnectionString logNamePrefix =
-        let account = CloudStorageAccount.Parse azureConnectionString 
-        let tableClient  = account.CreateCloudTableClient()
-
-        let tableStorageQuery =
-            TableQuery().Where(
-                match predicate.Caller with
-                | Some x ->
-                    TableQuery.CombineFilters(
-                        TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, x),
-                        TableOperators.And,
-                        (timeFilter predicate)
-                        )
-                | None ->
-                    timeFilter predicate
-                )
-
-        getTablesForPredicate tableClient predicate logNamePrefix
-        |> Seq.collect (fun tableName -> 
-            listLogsOneDay tableClient tableName tableStorageQuery predicate
-            )
-        |> Seq.sortBy (fun t -> t.Caller, t.UtcTime, t.Counter)
-
-    let purgeBeforeDaysBack daysToPurgeBack azureConnectionString logNamePrefix =
-        let account = CloudStorageAccount.Parse azureConnectionString 
-        let tableClient  = account.CreateCloudTableClient()
-
-        let purgeTableName = 
-            DateTime.UtcNow.AddDays((float daysToPurgeBack) * -1.)
-            |> tableNameFromTime logNamePrefix
-
-        tableClient.ListTables(logNamePrefix)  
+    let storageAccountTables = 
+        tableClient.ListTables() 
         |> List.ofSeq
-        |> List.fold (fun s (table : Table.CloudTable) ->
-            if table.Name < purgeTableName then
-                table.DeleteIfExistsAsync() |> ignore
-                s + 1
+
+    let filterRows f =
+        storageAccountTables
+        |> List.filter (fun table -> 
+            f table.Name startTableName
+            )
+
+    match predicate.Operator with
+    | EQ -> 
+        filterRows (=)
+
+    | LT -> 
+        filterRows (<=)
+
+    | GT -> 
+        filterRows (>=)
+
+    | Between ->
+        let endTableName = tableNameFromTime logNamePrefix predicate.EndDate.Value
+
+        storageAccountTables
+        |> List.filter (fun table -> 
+            (table.Name >= startTableName) && (table.Name <= endTableName)
+            )
+    |> List.map (fun table -> table.Name)
+    |> List.sort
+
+let timeFilter predicate =
+    let filterHighLow stringStartDate stringEndDate =
+        TableQuery.CombineFilters(
+            TableQuery.GenerateFilterCondition(
+                "RowKey", QueryComparisons.GreaterThanOrEqual, stringStartDate),
+            TableOperators.And,
+            TableQuery.GenerateFilterCondition(
+                "RowKey", QueryComparisons.LessThanOrEqual, stringEndDate) )
+
+    let filterOneDate comparison stringDate =
+        TableQuery.GenerateFilterCondition("RowKey", comparison, stringDate)
+
+    match predicate.Operator with
+    | EQ ->
+        let startDate = dateTimeString predicate.StartDate
+        let stringStartDate, stringEndDate = 
+            if startDate.EndsWith("00:00:00.000") then
+                startDate.Replace(" 00:00:00.000", ""), (dateTimeString (predicate.StartDate.AddDays(1.))).Replace(" 00:00:00.000", "")
             else
-                s
-            ) 0
+                startDate, (dateTimeString (predicate.StartDate.AddSeconds(1.)))
+        filterHighLow stringStartDate stringEndDate
+
+    | LT ->
+        filterOneDate QueryComparisons.LessThan <| dateTimeString predicate.StartDate
+
+    | GT ->
+        filterOneDate QueryComparisons.GreaterThan <| dateTimeString predicate.StartDate
+
+    | Between ->
+        filterHighLow (dateTimeString predicate.StartDate) (dateTimeString predicate.EndDate.Value)
+
+let inline toOption x  = 
+    match x with
+    | true, v    -> Some v
+    | _   -> None
+
+let parseLogLevel (dynamicTableEntity : DynamicTableEntity) =
+    match toOption <| dynamicTableEntity.Properties.TryGetValue("Level") with
+    | Some x -> x.StringValue
+    | None -> invalidArg "dynamicTableEntityToLogInternal" "Level"
+
+let dynamicTableEntityToLogInternal (dynamicTableEntity : DynamicTableEntity) =
+    let counter =
+        match toOption <| dynamicTableEntity.Properties.TryGetValue("Counter") with
+        | Some x -> 
+            if x.Int32Value.HasValue then
+                x.Int32Value.Value
+            else
+                invalidArg "dynamicTableEntityToLogInternal" "Counter"
+        | None -> invalidArg "dynamicTableEntityToLogInternal" "Counter"
+    let utcTime =  
+        match toOption <| dynamicTableEntity.Properties.TryGetValue("UtcTime") with
+        | Some x -> 
+            if  x.DateTime.HasValue then 
+                x.DateTime.Value
+            else
+                invalidArg "dynamicTableEntityToLogInternal" "UtcTime"
+        | None -> invalidArg "dynamicTableEntityToLogInternal" "UtcTime"
+    let level = parseLogLevel dynamicTableEntity
+    let message =  
+        match toOption <| dynamicTableEntity.Properties.TryGetValue("Message") with
+        | Some x -> x.StringValue
+        | None -> invalidArg "dynamicTableEntityToLogInternal" "Message"
+    let assembliesOrVersion =  
+        match toOption <| dynamicTableEntity.Properties.TryGetValue("AssembliesOrVersion") with
+        | Some x -> x.StringValue
+        | None -> invalidArg "dynamicTableEntityToLogInternal" "AssembliesOrVersion"
+    let machineName =  
+        match toOption <| dynamicTableEntity.Properties.TryGetValue("MachineName") with
+        | Some x -> x.StringValue
+        | None -> invalidArg "dynamicTableEntityToLogInternal" "MachineName"
+    let process' =  
+        match toOption <| dynamicTableEntity.Properties.TryGetValue("Process") with
+        | Some x -> Some x.StringValue
+        | None -> None
+    let byteInfo =  
+        match toOption <| dynamicTableEntity.Properties.TryGetValue("ByteInfo") with
+        | Some x -> x.BinaryValue
+        | None -> invalidArg "dynamicTableEntityToLogInternal" "ByteInfo"
+    let stringInfo =  
+        match toOption <| dynamicTableEntity.Properties.TryGetValue("StringInfo") with
+        | Some x -> Some x.StringValue
+        | None -> None
+    let exception' =  
+        match toOption <| dynamicTableEntity.Properties.TryGetValue("Exception") with
+        | Some x -> x.BinaryValue
+        | None -> invalidArg "dynamicTableEntityToLogInternal" "Exception"
+    let exceptionString =  
+        match toOption <| dynamicTableEntity.Properties.TryGetValue("ExceptionString") with
+        | Some x -> Some x.StringValue
+        | None -> None
+
+    { 
+    Caller = dynamicTableEntity.PartitionKey
+    UtcRunTime = dateTimeStringToDateTime dynamicTableEntity.RowKey
+    UtcTime = utcTime
+    Counter = counter
+    Level = LogLevel.Parse level
+    Message = message
+    AssembliesOrVersion = assembliesOrVersion
+    MachineName = machineName
+    Process = process'
+    ByteInfo =
+        match byteInfo with
+        | [|0uy|] -> None
+        | _ -> Some byteInfo
+    StringInfo = stringInfo
+    Exception = exceptionDeserialize exception'
+    ExceptionString = exceptionString
+    }
+
+let listLogsOneDay (tableClient : CloudTableClient) tableName (tableStorageQuery : TableQuery) (predicate : Predicate) =
+    let table = tableClient.GetTableReference(tableName)
+    if table.Exists() then
+        if predicate.LogLevels.IsEmpty then
+            table.ExecuteQuery(tableStorageQuery)
+            |> Seq.map dynamicTableEntityToLogInternal
+        else
+            table.ExecuteQuery(tableStorageQuery)
+            |> Seq.filter (fun t -> 
+                    List.contains (LogLevel.Parse (parseLogLevel t)) predicate.LogLevels)
+            |> Seq.map dynamicTableEntityToLogInternal
+    else
+        Seq.empty
+        
+let list (predicate : Predicate) azureConnectionString logNamePrefix =
+    let account = CloudStorageAccount.Parse azureConnectionString 
+    let tableClient  = account.CreateCloudTableClient()
+
+    let tableStorageQuery =
+        TableQuery().Where(
+            match predicate.Caller with
+            | Some x ->
+                TableQuery.CombineFilters(
+                    TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, x),
+                    TableOperators.And,
+                    (timeFilter predicate)
+                    )
+            | None ->
+                timeFilter predicate
+            )
+
+    getTablesForPredicate tableClient predicate logNamePrefix
+    |> Seq.collect (fun tableName -> 
+        listLogsOneDay tableClient tableName tableStorageQuery predicate
+        )
+    |> Seq.sortBy (fun t -> t.Caller, t.UtcTime, t.Counter)
+
+let purgeBeforeDaysBack daysToPurgeBack azureConnectionString logNamePrefix =
+    let account = CloudStorageAccount.Parse azureConnectionString 
+    let tableClient  = account.CreateCloudTableClient()
+
+    let purgeTableName = 
+        DateTime.UtcNow.AddDays((float daysToPurgeBack) * -1.)
+        |> tableNameFromTime logNamePrefix
+
+    tableClient.ListTables(logNamePrefix)  
+    |> List.ofSeq
+    |> List.fold (fun s (table : Table.CloudTable) ->
+        if table.Name < purgeTableName then
+            table.DeleteIfExistsAsync() |> ignore
+            s + 1
+        else
+            s
+        ) 0
  
