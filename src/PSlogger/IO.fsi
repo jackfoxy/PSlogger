@@ -1,4 +1,4 @@
-﻿namespace PSlogger
+﻿module PSlogger
 
 open System
 open Microsoft.WindowsAzure.Storage.Table
@@ -67,30 +67,29 @@ type CountingLog =
     new : caller : string * utcRunTime : DateTime * level : LogLevel * assemblyOrVersion : string *  machineName : string * processName : string option -> CountingLog
     member Log : Log
 
-module IO =
-    /// should not have to make this type public
-    /// workaround for https://github.com/Azure/azure-storage-net/issues/523
-    [<Class>]
-    type InternalLog =
-      inherit TableEntity
-      new : log:Log -> InternalLog
-      member AssembliesOrVersion : string with get, set
-      member ByteInfo : byte [] with get, set
-      member Counter : int with get, set
-      member Exception : byte [] with get, set
-      member ExceptionString : string  with get, set
-      member Level : string with get, set
-      member MachineName : string with get, set
-      member Message : string with get, set
-      member Process : string with get, set
-      member StringInfo : string  with get, set
-      member UtcTime : System.DateTime with get, set
+/// should not have to make this type public
+/// workaround for https://github.com/Azure/azure-storage-net/issues/523
+[<Class>]
+type InternalLog =
+    inherit TableEntity
+    new : log:Log -> InternalLog
+    member AssembliesOrVersion : string with get, set
+    member ByteInfo : byte [] with get, set
+    member Counter : int with get, set
+    member Exception : byte [] with get, set
+    member ExceptionString : string  with get, set
+    member Level : string with get, set
+    member MachineName : string with get, set
+    member Message : string with get, set
+    member Process : string with get, set
+    member StringInfo : string  with get, set
+    member UtcTime : System.DateTime with get, set
    
-    val insert : azureConnectionString : string -> log : Log -> logNamePrefix : string -> unit
+val insert : azureConnectionString : string -> log : Log -> logNamePrefix : string -> unit
 
-    val insertAsync : azureConnectionString : string -> log : Log -> logNamePrefix : string -> Task<TableResult>
+val insertAsync : azureConnectionString : string -> log : Log -> logNamePrefix : string -> Task<TableResult>
 
-    val list : predicate : Predicate -> azureConnectionString : string -> logNamePrefix : string -> Log seq
+val list : predicate : Predicate -> azureConnectionString : string -> logNamePrefix : string -> Log seq
 
-    val purgeBeforeDaysBack : daysToPurgeBack : int -> azureConnectionString : string -> logNamePrefix : string -> int
+val purgeBeforeDaysBack : daysToPurgeBack : int -> azureConnectionString : string -> logNamePrefix : string -> int
 

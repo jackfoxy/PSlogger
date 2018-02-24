@@ -2,7 +2,6 @@
 
 open System
 open System.Configuration
-open PSlogger
 
 module Console =
 
@@ -21,7 +20,7 @@ module Console =
                 printfn "%s" parsedCommand.Usage
             | None -> 
                 let azureConnectionString = ConfigurationManager.ConnectionStrings.["AzureStorage"].ConnectionString
-                let logs = IO.list parsedCommand.Predicate.Value azureConnectionString "logs"
+                let logs = PSlogger.list parsedCommand.Predicate.Value azureConnectionString "logs"
             
                 logs
                 |> Seq.iter (fun x -> 
@@ -35,7 +34,7 @@ module Console =
                                 x.Caller x.UtcRunTime x.Level x.UtcTime (defaultArg x.Process "") x.Message errorMsg
                     printfn "%s" line)
 
-                if parsedCommand.Predicate.Value.Operator = PredicateOperator.EQ
+                if parsedCommand.Predicate.Value.Operator = PSlogger.PredicateOperator.EQ
                     && Seq.length logs > 0
                     && (Seq.head logs).Exception.IsSome then
                         printfn ""
