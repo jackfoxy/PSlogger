@@ -1,18 +1,12 @@
 ﻿namespace GetLog
 
-open Argu
-open FSharpx.Choice
-open System
 open PSlogger
+open Argu
+open Prelude
+open System
+
 
 module CommandLine = 
-
-    let (|Success|Failure|) = function
-        | Choice1Of2 x -> Success x
-        | Choice2Of2 x -> Failure x
-
-    let inline Success x = Choice1Of2 x
-    let inline Failure x = Choice2Of2 x
 
     type ParsedCommand =
         {
@@ -41,13 +35,12 @@ module CommandLine =
                     | LogLevels _ -> "log level list, comma separated"
 
     let parseCommandLine programName (argv : string []) = 
-
         try
             match argv, argv.Length with
             | _, 0 -> 
-                Failure (invalidArg "no arguments" "")
+                Result.Error (invalidArg "no arguments" "")
             | help, 1  when help.[0].ToLower() = "--help" ->
-                Failure (invalidArg "" "")
+                Result.Error (invalidArg "" "")
             | _, _ ->
                 let parser = 
                     ArgumentParser.Create<CLIArguments>(programName = programName)
@@ -55,16 +48,16 @@ module CommandLine =
                 let commandLine = parser.Parse argv
                 let usage = parser.PrintUsage()
 
-                Success (commandLine, usage)
+                Ok (commandLine, usage)
         with e ->
-            Failure e
+            Result.Error e
 
     let getcaller (commandLine : ParseResults<CLIArguments>) =
 
         try
-            Success <| commandLine.TryGetResult <@ Caller @>
+            Ok <| commandLine.TryGetResult <@ Caller @>
         with e ->
-            Failure e
+            Result.Error e
         
     let getLogLevels (commandLine : ParseResults<CLIArguments>) = 
         
@@ -72,19 +65,20 @@ module CommandLine =
             match commandLine.TryGetResult <@ LogLevels @> with
             | Some x ->
                 x
-                |> List.map LogLevel.Parse
-                |> Success 
-            | None -> Success LogLevel.All
+                |> List.toArray
+                |> Array.map LogLevel.Parse
+                |> Ok 
+            | None -> Ok LogLevel.All
         with e ->
-            Failure e
+            Result.Error e
 
     let parseDate msg (date : string) =
         let d = date.Replace("\'", "").Replace("\"", "")
         match DateTime.TryParse d with
-        | true, dt -> dt 
+        | Some dt -> dt 
         | _ -> 
             match DateTime.TryParse (sprintf "%s 0:0:0" d) with
-            | true, dt -> dt 
+            | Some dt -> dt 
             | _ -> 
                 invalidArg msg date
 
@@ -97,12 +91,12 @@ module CommandLine =
                 StartDate = parseDate "error parsing EQ date" dateTime
                 EndDate = None
                 Caller = None
-                LogLevels = []
-                } |> Some |> Success
-            | None -> Success None
+                LogLevels = [||]
+                } |> Some |> Ok
+            | None -> Ok None
             
         with e ->
-            Failure e
+            Result.Error e
 
     let getGt (commandLine : ParseResults<CLIArguments>) =
         try
@@ -113,12 +107,12 @@ module CommandLine =
                 StartDate = parseDate "error parsing GT date" dateTime
                 EndDate = None
                 Caller = None
-                LogLevels = []
-                } |> Some |> Success
-            | None -> Success None
+                LogLevels = [||]
+                } |> Some |> Ok
+            | None -> Ok None
             
         with e ->
-            Failure e
+            Result.Error e
 
     let getLt (commandLine : ParseResults<CLIArguments>) =
         try
@@ -129,12 +123,12 @@ module CommandLine =
                 StartDate = parseDate "error parsing LT date" dateTime
                 EndDate = None
                 Caller = None
-                LogLevels = []
-                } |> Some |> Success
-            | None -> Success None
+                LogLevels = [||]
+                } |> Some |> Ok
+            | None -> Ok None
             
         with e ->
-            Failure e
+            Result.Error e
 
     let getBetween (commandLine : ParseResults<CLIArguments>) =
         try
@@ -152,26 +146,26 @@ module CommandLine =
                     StartDate = dt1
                     EndDate = Some dt2
                     Caller = None
-                    LogLevels = []
-                    } |> Some |> Success
+                    LogLevels = [||]
+                    } |> Some |> Ok
                 else invalidArg "start date not less than end date" ""
-            | None -> Success None
+            | None -> Ok None
             
         with e ->
-            Failure e
+            Result.Error e
 
     let mergePredicate eq gt lt between logLevels caller =
         try
             match ([eq; gt; lt; between] |> List.choose id) with
             | [predicate] ->
                 {predicate with Caller = caller; LogLevels = logLevels}
-                |> Success
+                |> Ok
             | hd::tl ->
                 sprintf "%s, %s" (hd.Operator.ToString()) (tl.Head.Operator.ToString())
                 |> invalidArg "multiple predicates selected" 
             | _ -> invalidArg "no predicate selected" "EQ, GT, LT, Between"
         with e ->
-            Failure e
+            Result.Error e
 
     let parse programName argv = 
 
@@ -184,7 +178,8 @@ module CommandLine =
                         let! gt = getGt commandLine
                         let! lt = getLt commandLine
                         let! between = getBetween commandLine
-                        let! mergedPredicate = mergePredicate eq gt lt between logLevels caller
+                        let! mergedPredicate = 
+                            mergePredicate eq gt lt between logLevels caller
                         
                         return 
                             {
@@ -193,8 +188,8 @@ module CommandLine =
                             Error = None
                             } 
                         } with
-        | Success x -> x
-        | Failure (e : Exception) -> 
+        | Ok x -> x
+        | Result.Error (e : Exception) -> 
             let usage = ArgumentParser.Create<CLIArguments>(programName = programName).PrintUsage()
             {
             Usage = usage

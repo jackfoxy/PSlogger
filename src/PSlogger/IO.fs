@@ -30,7 +30,14 @@ type LogLevel =
         | x when x = "warning" -> LogLevel.Warning
         | _ -> invalidArg "LogLevel Parse" (sprintf "cannot parse %s" severity)
     static member All =
-        [LogLevel.Error; LogLevel.ErrorException; LogLevel.FatalException; LogLevel.Debug; LogLevel.Info; LogLevel.Warning]
+        [| 
+            LogLevel.Error
+            LogLevel.ErrorException
+            LogLevel.FatalException
+            LogLevel.Debug
+            LogLevel.Info
+            LogLevel.Warning
+        |]
 
 type PredicateOperator =
     | EQ
@@ -51,7 +58,7 @@ type Predicate =
     StartDate : DateTime
     EndDate : DateTime option
     Caller : string option
-    LogLevels : LogLevel list
+    LogLevels : LogLevel []
     }
     static member Create operator startDate endDate caller logLevels =
         match endDate with
@@ -269,7 +276,7 @@ let getClientTable (log : Log) azureConnectionString logNamePrefix =
     let tableName = tableNameFromTime logNamePrefix log.UtcRunTime
             
     let table = tableClient.GetTableReference(tableName)
-    table.CreateIfNotExists() |> ignore
+    table.CreateIfNotExistsAsync().Result |> ignore
 
     table
 
@@ -286,7 +293,7 @@ let insert azureConnectionString log logNamePrefix =
     let internalLog = InternalLog(log)
     let insertOp = TableOperation.Insert(internalLog)
 
-    table.Execute(insertOp)
+    table.ExecuteAsync(insertOp).Result
     |> goodInsert log
 
 let insertAsync azureConnectionString log logNamePrefix =
@@ -300,13 +307,20 @@ let insertAsync azureConnectionString log logNamePrefix =
 let getTablesForPredicate (tableClient : CloudTableClient) predicate logNamePrefix = 
     let startTableName = tableNameFromTime logNamePrefix predicate.StartDate
 
+    let mutable token = new TableContinuationToken()
+
     let storageAccountTables = 
-        tableClient.ListTables() 
-        |> List.ofSeq
+        [|
+            while token <> null do
+                let tables = tableClient.ListTablesSegmentedAsync(token).Result
+                token <- tables.ContinuationToken
+                for x in tables.Results do
+                    x
+        |]
 
     let filterRows f =
         storageAccountTables
-        |> List.filter (fun table -> 
+        |> Array.filter (fun table -> 
             f table.Name startTableName
             )
 
@@ -324,11 +338,11 @@ let getTablesForPredicate (tableClient : CloudTableClient) predicate logNamePref
         let endTableName = tableNameFromTime logNamePrefix predicate.EndDate.Value
 
         storageAccountTables
-        |> List.filter (fun table -> 
+        |> Array.filter (fun table -> 
             (table.Name >= startTableName) && (table.Name <= endTableName)
             )
-    |> List.map (fun table -> table.Name)
-    |> List.sort
+    |> Array.map (fun table -> table.Name)
+    |> Array.sort
 
 let timeFilter predicate =
     let filterHighLow stringStartDate stringEndDate =
@@ -443,17 +457,28 @@ let dynamicTableEntityToLogInternal (dynamicTableEntity : DynamicTableEntity) =
 
 let listLogsOneDay (tableClient : CloudTableClient) tableName (tableStorageQuery : TableQuery) (predicate : Predicate) =
     let table = tableClient.GetTableReference(tableName)
-    if table.Exists() then
-        if predicate.LogLevels.IsEmpty then
-            table.ExecuteQuery(tableStorageQuery)
-            |> Seq.map dynamicTableEntityToLogInternal
+    let mutable token = new TableContinuationToken()
+
+    let tableRows =
+        [|
+            while token <> null do
+                let rows = table.ExecuteQuerySegmentedAsync(tableStorageQuery, token).Result
+                token <- rows.ContinuationToken
+                for x in rows.Results do
+                    x
+        |]
+
+    if table.ExistsAsync().Result then
+        if predicate.LogLevels.Length = 0 then
+            tableRows
+            |> Array.map dynamicTableEntityToLogInternal
         else
-            table.ExecuteQuery(tableStorageQuery)
-            |> Seq.filter (fun t -> 
-                    List.contains (LogLevel.Parse (parseLogLevel t)) predicate.LogLevels)
-            |> Seq.map dynamicTableEntityToLogInternal
+            tableRows
+            |> Array.filter (fun t -> 
+                    Array.contains (LogLevel.Parse (parseLogLevel t)) predicate.LogLevels)
+            |> Array.map dynamicTableEntityToLogInternal
     else
-        Seq.empty
+        Array.empty
         
 let list (predicate : Predicate) azureConnectionString logNamePrefix =
     let account = CloudStorageAccount.Parse azureConnectionString 
@@ -486,9 +511,21 @@ let purgeBeforeDaysBack daysToPurgeBack azureConnectionString logNamePrefix =
         DateTime.UtcNow.AddDays((float daysToPurgeBack) * -1.)
         |> tableNameFromTime logNamePrefix
 
-    tableClient.ListTables(logNamePrefix)  
-    |> List.ofSeq
-    |> List.fold (fun s (table : Table.CloudTable) ->
+    let mutable token = new TableContinuationToken()
+
+    let storageAccountTables = 
+        [|
+            while token <> null do
+                let tables = tableClient.ListTablesSegmentedAsync(logNamePrefix, token).Result
+                token <- tables.ContinuationToken
+                for x in tables.Results do
+                    x
+        |]
+
+
+    storageAccountTables 
+    |> Array.ofSeq
+    |> Array.fold (fun s (table : Table.CloudTable) ->
         if table.Name < purgeTableName then
             table.DeleteIfExistsAsync() |> ignore
             s + 1

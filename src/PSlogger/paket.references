@@ -1,2 +1,2 @@
-FSharp.Core
-WindowsAzure.Storage 
+WindowsAzure.Storage
+FsPickler

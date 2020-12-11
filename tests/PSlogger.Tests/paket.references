@@ -1,7 +1,4 @@
-FSharp.Core
-FSharp.Configuration
-WindowsAzure.Storage 
+WindowsAzure.Storage
 Expecto
-Expecto.BenchmarkDotNet
-Expecto.FsCheck
-Expecto.VisualStudio.TestAdapter
+YoloDev.Expecto.TestSdk
+Microsoft.NET.Test.Sdk

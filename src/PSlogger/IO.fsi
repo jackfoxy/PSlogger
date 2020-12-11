@@ -19,7 +19,7 @@ type LogLevel =
     | Warning 
   with
     static member Parse : severity : string -> LogLevel
-    static member All : LogLevel list
+    static member All : LogLevel []
 
 type Predicate =
     {
@@ -27,10 +27,10 @@ type Predicate =
     StartDate : DateTime
     EndDate : DateTime option
     Caller : string option
-    LogLevels : LogLevel list
+    LogLevels : LogLevel []
     }
     with
-        static member Create : operator : PredicateOperator -> startDate : DateTime -> endDate : DateTime option -> caller : string option -> logLevels : LogLevel list -> Predicate
+        static member Create : operator : PredicateOperator -> startDate : DateTime -> endDate : DateTime option -> caller : string option -> logLevels : LogLevel [] -> Predicate
 
 /// log message and supporting data
 [<CustomEquality; CustomComparison>]

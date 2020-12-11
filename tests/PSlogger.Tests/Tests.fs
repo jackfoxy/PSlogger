@@ -3,13 +3,9 @@ namespace PSlogger.Tests
 open Expecto
 open PSlogger
 open System
-open FSharp.Configuration
-
-type Settings = AppSettings<"app.config">
 
 module Tests =
-
-    let azureConnectionString = Settings.ConnectionStrings.AzureStorage
+    let azureConnectionString = "UseDevelopmentStorage=true"
 
     let log1 =
         { 
@@ -34,7 +30,7 @@ module Tests =
         StartDate = DateTime.UtcNow
         EndDate = None
         Caller = None
-        LogLevels = []
+        LogLevels = [||]
         }
 
     [<Tests>]
@@ -140,7 +136,7 @@ module Tests =
                 let predicate = {predicate1 with
                                   StartDate = testDate.AddMinutes(-1.)
                                   EndDate = testDate.AddMinutes(1.) |> Some 
-                                  LogLevels = [LogLevel.Info; LogLevel.Debug]}
+                                  LogLevels = [|LogLevel.Info; LogLevel.Debug|]}
 
                 insert azureConnectionString inLog "logs"
                 let outLog = 
@@ -159,7 +155,7 @@ module Tests =
                 let predicate = {predicate1 with
                                   StartDate = testDate.AddMinutes(-1.)
                                   EndDate = testDate.AddMinutes(1.) |> Some 
-                                  LogLevels = [LogLevel.Error; LogLevel.Debug]}
+                                  LogLevels = [|LogLevel.Error; LogLevel.Debug|]}
 
                 insert azureConnectionString inLog "logs"
                 let outLogLength = 

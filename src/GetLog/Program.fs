@@ -38,7 +38,7 @@ module Console =
                     && Seq.length logs > 0
                     && (Seq.head logs).Exception.IsSome then
                         printfn ""
-                        printfn "%s" <|Common.formatExceptionDisplay (Seq.head logs).Exception.Value
+                        printfn "%s" <| formatExceptionDisplay (Seq.head logs).Exception.Value
                 else
                     ()
             printfn ""

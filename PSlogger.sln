@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26730.10
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30804.86
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{63297B98-5CED-492C-A5B7-A5B4F73CF142}"
 	ProjectSection(SolutionItems) = preProject
@@ -29,10 +29,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "content", "content", "{8E6D
 		docsrc\content\index.fsx = docsrc\content\index.fsx
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{ED8079DD-2B06-4030-9F0F-DC548F98E1C4}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PSlogger.Tests", "tests\PSlogger.Tests\PSlogger.Tests.fsproj", "{80781AD7-CBD4-40F5-BC5A-E855CE2C079A}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "git", "git", "{078A9C52-DDC1-46F4-9235-9E6C89C87AFD}"
 	ProjectSection(SolutionItems) = preProject
 		.gitattributes = .gitattributes
@@ -40,17 +36,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "git", "git", "{078A9C52-DDC
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".build", ".build", "{7C6D08E7-3EAC-4335-8F4B-252C193C27C9}"
-	ProjectSection(SolutionItems) = preProject
-		.travis.yml = .travis.yml
-		appveyor.yml = appveyor.yml
-		build.cmd = build.cmd
-		build.fsx = build.fsx
-		build.sh = build.sh
-	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "GetLog", "src\GetLog\GetLog.fsproj", "{B08CAA04-5588-416B-ABD4-893B5FECEB2E}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "GetLog", "src\GetLog\GetLog.fsproj", "{B08CAA04-5588-416B-ABD4-893B5FECEB2E}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PSlogger", "src\PSlogger\PSlogger.fsproj", "{601D6F1D-FFC2-4E7B-B3BC-6AEB663D77C5}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PSlogger", "src\PSlogger\PSlogger.fsproj", "{EC25A61E-22AF-40F7-B67F-F9524B990B95}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PSlogger.Tests", "tests\PSlogger.Tests\PSlogger.Tests.fsproj", "{A657F016-8318-49BE-897B-7EAFE4731E99}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -58,18 +49,18 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{80781AD7-CBD4-40F5-BC5A-E855CE2C079A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{80781AD7-CBD4-40F5-BC5A-E855CE2C079A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{80781AD7-CBD4-40F5-BC5A-E855CE2C079A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{80781AD7-CBD4-40F5-BC5A-E855CE2C079A}.Release|Any CPU.Build.0 = Release|Any CPU
 		{B08CAA04-5588-416B-ABD4-893B5FECEB2E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B08CAA04-5588-416B-ABD4-893B5FECEB2E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B08CAA04-5588-416B-ABD4-893B5FECEB2E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B08CAA04-5588-416B-ABD4-893B5FECEB2E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{601D6F1D-FFC2-4E7B-B3BC-6AEB663D77C5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{601D6F1D-FFC2-4E7B-B3BC-6AEB663D77C5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{601D6F1D-FFC2-4E7B-B3BC-6AEB663D77C5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{601D6F1D-FFC2-4E7B-B3BC-6AEB663D77C5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EC25A61E-22AF-40F7-B67F-F9524B990B95}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EC25A61E-22AF-40F7-B67F-F9524B990B95}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EC25A61E-22AF-40F7-B67F-F9524B990B95}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EC25A61E-22AF-40F7-B67F-F9524B990B95}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A657F016-8318-49BE-897B-7EAFE4731E99}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A657F016-8318-49BE-897B-7EAFE4731E99}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A657F016-8318-49BE-897B-7EAFE4731E99}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A657F016-8318-49BE-897B-7EAFE4731E99}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -77,7 +68,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{83F16175-43B1-4C90-A1EE-8E351C33435D} = {A6A6AF7D-D6E3-442D-9B1E-58CC91879BE1}
 		{8E6D5255-776D-4B61-85F9-73C37AA1FB9A} = {A6A6AF7D-D6E3-442D-9B1E-58CC91879BE1}
-		{80781AD7-CBD4-40F5-BC5A-E855CE2C079A} = {ED8079DD-2B06-4030-9F0F-DC548F98E1C4}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6356A0A5-2C74-42E3-B98D-544D68E72FBE}
