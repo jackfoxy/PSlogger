@@ -3,7 +3,7 @@
 // it to define helpers that you do not want to show in the documentation.
 #I "../../src/PSlogger/bin/Debug"
 #r "../../Packages/WindowsAzure.Storage/lib/net45/Microsoft.WindowsAzure.Storage.dll"
-#r "../../bin/PSlogger/PSlogger.dll"
+#r "../../../PSlogger/bin/Release/netstandard2.0/PSlogger.dll"
 
 (**
 PSlogger

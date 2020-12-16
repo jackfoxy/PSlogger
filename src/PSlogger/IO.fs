@@ -235,9 +235,16 @@ let dateTimeStringToDateTime (s : string) =
 
     DateTime(year, month, day, hour, minute, second, millisecond)
 
+let buildRowKey (log : Log) =
+    match log.Process with
+    | Some x -> 
+        $"{x} {dateTimeString log.UtcRunTime} {log.Counter.ToString().PadLeft(3, '0')}"
+    | None -> 
+        $"{dateTimeString log.UtcRunTime} {log.Counter.ToString().PadLeft(3, '0')}"
+    
 [<Class>]
 type InternalLog (log : Log) =
-    inherit TableEntity(partitionKey = log.Caller, rowKey = dateTimeString log.UtcRunTime)
+    inherit TableEntity(partitionKey = log.Caller, rowKey = buildRowKey log)
     member val Counter = log.Counter with get, set
     member val UtcTime = log.UtcTime  with get, set
     member val Level = log.Level.ToString()  with get, set
