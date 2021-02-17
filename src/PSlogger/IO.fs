@@ -4,6 +4,7 @@ open System
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 open MBrace.FsPickler
+open FSharp.Control.Tasks.V2.ContextInsensitive
 
 type LogLevel =
     | Error 
@@ -392,101 +393,73 @@ let parseLogLevel (dynamicTableEntity : DynamicTableEntity) =
     | Some x -> x.StringValue
     | None -> invalidArg "dynamicTableEntityToLogInternal" "Level"
 
-let dynamicTableEntityToLogInternal (dynamicTableEntity : DynamicTableEntity) =
-    let counter =
-        match toOption <| dynamicTableEntity.Properties.TryGetValue("Counter") with
-        | Some x -> 
-            if x.Int32Value.HasValue then
-                x.Int32Value.Value
-            else
-                invalidArg "dynamicTableEntityToLogInternal" "Counter"
-        | None -> invalidArg "dynamicTableEntityToLogInternal" "Counter"
-    let utcTime =  
-        match toOption <| dynamicTableEntity.Properties.TryGetValue("UtcTime") with
-        | Some x -> 
-            if  x.DateTime.HasValue then 
-                x.DateTime.Value
-            else
-                invalidArg "dynamicTableEntityToLogInternal" "UtcTime"
-        | None -> invalidArg "dynamicTableEntityToLogInternal" "UtcTime"
-    let level = parseLogLevel dynamicTableEntity
-    let message =  
-        match toOption <| dynamicTableEntity.Properties.TryGetValue("Message") with
-        | Some x -> x.StringValue
-        | None -> invalidArg "dynamicTableEntityToLogInternal" "Message"
-    let assembliesOrVersion =  
-        match toOption <| dynamicTableEntity.Properties.TryGetValue("AssembliesOrVersion") with
-        | Some x -> x.StringValue
-        | None -> invalidArg "dynamicTableEntityToLogInternal" "AssembliesOrVersion"
-    let machineName =  
-        match toOption <| dynamicTableEntity.Properties.TryGetValue("MachineName") with
-        | Some x -> x.StringValue
-        | None -> invalidArg "dynamicTableEntityToLogInternal" "MachineName"
-    let process' =  
-        match toOption <| dynamicTableEntity.Properties.TryGetValue("Process") with
-        | Some x -> Some x.StringValue
-        | None -> None
-    let byteInfo =  
-        match toOption <| dynamicTableEntity.Properties.TryGetValue("ByteInfo") with
-        | Some x -> x.BinaryValue
-        | None -> invalidArg "dynamicTableEntityToLogInternal" "ByteInfo"
-    let stringInfo =  
-        match toOption <| dynamicTableEntity.Properties.TryGetValue("StringInfo") with
-        | Some x -> Some x.StringValue
-        | None -> None
-    let exception' =  
-        match toOption <| dynamicTableEntity.Properties.TryGetValue("Exception") with
-        | Some x -> x.BinaryValue
-        | None -> invalidArg "dynamicTableEntityToLogInternal" "Exception"
-    let exceptionString =  
-        match toOption <| dynamicTableEntity.Properties.TryGetValue("ExceptionString") with
-        | Some x -> Some x.StringValue
-        | None -> None
-
-    { 
-    Caller = dynamicTableEntity.PartitionKey
-    UtcRunTime = dateTimeStringToDateTime dynamicTableEntity.RowKey
-    UtcTime = utcTime
-    Counter = counter
-    Level = LogLevel.Parse level
-    Message = message
-    AssembliesOrVersion = assembliesOrVersion
-    MachineName = machineName
-    Process = process'
-    ByteInfo =
-        match byteInfo with
-        | [|0uy|] -> None
-        | _ -> Some byteInfo
-    StringInfo = stringInfo
-    Exception = exceptionDeserialize exception'
-    ExceptionString = exceptionString
+let continueFetchingEntitiesAsync (table:CloudTable) query (continuationToken:TableContinuationToken) (entities:ResizeArray<_>) =
+    task {
+        let! response = table.ExecuteQuerySegmentedAsync(query, continuationToken)
+        entities.AddRange(response)
+        let mutable token = response.ContinuationToken
+        while isNull token |> not do
+            let! response = table.ExecuteQuerySegmentedAsync(query, token)
+            entities.AddRange(response)
+            token <- response.ContinuationToken
+        return entities
     }
 
-let listLogsOneDay (tableClient : CloudTableClient) tableName (tableStorageQuery : TableQuery) (predicate : Predicate) =
-    let table = tableClient.GetTableReference(tableName)
-    let mutable token = new TableContinuationToken()
+let fetchAllEntitiesAsync (table:CloudTable) =
+    continueFetchingEntitiesAsync table (TableQuery()) null (ResizeArray<_>())
 
-    let tableRows =
-        [|
-            while token <> null do
-                let rows = table.ExecuteQuerySegmentedAsync(tableStorageQuery, token).Result
-                token <- rows.ContinuationToken
-                for x in rows.Results do
-                    x
-        |]
-
-    if table.ExistsAsync().Result then
-        if predicate.LogLevels.Length = 0 then
-            tableRows
-            |> Array.map dynamicTableEntityToLogInternal
-        else
-            tableRows
-            |> Array.filter (fun t -> 
-                    Array.contains (LogLevel.Parse (parseLogLevel t)) predicate.LogLevels)
-            |> Array.map dynamicTableEntityToLogInternal
-    else
-        Array.empty
+let fetchAllEntitiesWithQueryAsync (table:CloudTable) query =
+    continueFetchingEntitiesAsync table query null (ResizeArray<_>())
         
+let deserializeLogRow (entity:DynamicTableEntity) =
+    let tryGetProp = entity.Properties.TryGetValue >> function | (true, x) -> Some x | _ -> None
+    let getStringProp name = 
+        name |> tryGetProp |> Option.get |> fun a -> a.StringValue
+    let getStringOptionProp name = 
+        name |> tryGetProp |> Option.map (fun a -> a.StringValue)
+    let getIntProp name = 
+        name |> tryGetProp |> Option.get |> fun a -> Option.ofNullable a.Int32Value |> Option.get
+    let getDateProp name =
+        name |> tryGetProp |> Option.get |> fun a -> Option.ofNullable a.DateTime |> Option.get
+    let getLogLevelProp () = 
+        "Level" |> tryGetProp |> Option.get |> fun a -> a.StringValue |> LogLevel.Parse
+    let getByteInfoProp () = 
+        "ByteInfo" |> tryGetProp 
+        |> Option.bind (fun a -> 
+            match a.BinaryValue.Length with
+            | 0 -> 
+                None
+            | 1 ->
+                //seems to be a feature of tables, sometimes returns [], sometimes [0uy]
+                if a.BinaryValue.[0] = 0uy then
+                    None
+                else
+                    Some a.BinaryValue
+            | _ ->
+                Some a.BinaryValue
+        )
+
+    let getExceptionProp () =
+        match tryGetProp "Exception" with
+        | Some x -> x.BinaryValue
+        | None -> invalidArg "dynamicTableEntityToLogInternal" "Exception"
+    
+    { 
+        Caller = entity.PartitionKey 
+        UtcRunTime = DateTime.Parse <| entity.RowKey.Substring(0, entity.RowKey.Length - 4)
+        Counter = getIntProp "Counter"
+        UtcTime = getDateProp "UtcTime"
+        Level = getLogLevelProp()
+        Message = getStringProp "Message"
+        AssembliesOrVersion = getStringProp "AssembliesOrVersion"
+        MachineName = getStringProp "MachineName"
+        Process = getStringOptionProp "Process"
+        ByteInfo = getByteInfoProp ()
+        StringInfo = getStringOptionProp "StringInfo"
+        Exception = exceptionDeserialize <| getExceptionProp() 
+        ExceptionString = getStringOptionProp "ExceptionString"
+    }
+
 let list (predicate : Predicate) azureConnectionString logNamePrefix =
     let account = CloudStorageAccount.Parse azureConnectionString 
     let tableClient  = account.CreateCloudTableClient()
@@ -504,11 +477,26 @@ let list (predicate : Predicate) azureConnectionString logNamePrefix =
                 timeFilter predicate
             )
 
-    getTablesForPredicate tableClient predicate logNamePrefix
-    |> Seq.collect (fun tableName -> 
-        listLogsOneDay tableClient tableName tableStorageQuery predicate
-        )
-    |> Seq.sortBy (fun t -> t.Caller, t.UtcTime, t.Counter)
+    let tableRows =
+        getTablesForPredicate tableClient predicate logNamePrefix
+        |> Array.collect (fun tableName -> 
+            let table = tableClient.GetTableReference(tableName)
+
+            fetchAllEntitiesWithQueryAsync table tableStorageQuery
+            |> Async.AwaitTask 
+            |> Async.RunSynchronously
+            |> Seq.toArray
+            |> Array.map deserializeLogRow
+            )
+        |> Array.sortBy (fun t -> t.Caller, t.UtcTime, t.Counter)
+
+    if predicate.LogLevels.Length = 0 then
+        tableRows
+    else
+        tableRows
+        |> Array.filter (fun t -> 
+                Array.contains t.Level predicate.LogLevels
+         )  
 
 let purgeBeforeDaysBack daysToPurgeBack azureConnectionString logNamePrefix =
     let account = CloudStorageAccount.Parse azureConnectionString 
@@ -528,7 +516,6 @@ let purgeBeforeDaysBack daysToPurgeBack azureConnectionString logNamePrefix =
                 for x in tables.Results do
                     x
         |]
-
 
     storageAccountTables 
     |> Array.ofSeq

@@ -89,7 +89,7 @@ val insert : azureConnectionString : string -> log : Log -> logNamePrefix : stri
 
 val insertAsync : azureConnectionString : string -> log : Log -> logNamePrefix : string -> Task<TableResult>
 
-val list : predicate : Predicate -> azureConnectionString : string -> logNamePrefix : string -> Log seq
+val list : predicate : Predicate -> azureConnectionString : string -> logNamePrefix : string -> Log []
 
 val purgeBeforeDaysBack : daysToPurgeBack : int -> azureConnectionString : string -> logNamePrefix : string -> int
 
