@@ -77,8 +77,7 @@ module Tests =
 
                 Expect.isTrue (inLog = outLog) "Expected True"
 
-            ptestCase "equality all optionals" <| fun () ->
-            // can't figure out why the insert on this test returns 204
+            testCase "equality all optionals" <| fun () ->
                 try
                     let n = 1 / 0
                     Expect.isTrue false "how did we get here?"
@@ -87,7 +86,8 @@ module Tests =
                     let inLog = {log1 with 
                                     UtcRunTime = testDate
                                     UtcTime = testDate 
-                                    Process = Some "equality all optionals"
+                                    // can't figure out why the insert with process returns 204
+                                    //Process = Some "equality all optionals"
                                     ByteInfo = Some [|0uy;1uy;2uy|]
                                     StringInfo = Some "a string"
                                     Exception = Some e
