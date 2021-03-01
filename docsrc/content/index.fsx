@@ -145,7 +145,7 @@ Writing messages.
 *)
 let logMessage (initLog : CountingLog) connString curretnProcess message addlInfo  =
     
-    IO.insertAsync connString {initLog.Log with 
+    insertAsync connString {initLog.Log with 
                                 UtcTime = DateTime.UtcNow;
                                 Process = curretnProcess
                                 Message = message
@@ -159,7 +159,7 @@ Logging exceptions.
 *)
 let logException (initLog : CountingLog) connString (exn : Exception) currentRecord  = 
     
-    IO.insert connString {initLog.Log with 
+    insert connString {initLog.Log with 
                             UtcTime = DateTime.UtcNow;
                             Level = LogLevel.ErrorException
                             Message = exn.Message

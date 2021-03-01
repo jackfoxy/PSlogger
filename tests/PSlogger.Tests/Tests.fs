@@ -115,8 +115,8 @@ module Tests =
                     Expect.isTrue (inLog.ByteInfo = outLog.ByteInfo) "Expected ByteInfo"
                     Expect.isTrue (inLog.Caller = outLog.Caller) "Expected Caller"
                     Expect.isTrue (inLog.Counter = outLog.Counter) "Expected Counter"
-                    Expect.isTrue (sprintf "%A" inLog.Exception = sprintf "%A" outLog.Exception) 
-                        (sprintf "inException = %A outException = %A" inLog.Exception outLog.Exception)
+                    Expect.isTrue ($"{inLog.Exception}" = $"{outLog.Exception}")
+                        $"inException = {inLog.Exception} outException = {outLog.Exception}"
                     Expect.isTrue (inLog.ExceptionString = outLog.ExceptionString) "Expected ExceptionString"
                     Expect.isTrue (inLog.Level = outLog.Level) "Expected Level"
                     Expect.isTrue (inLog.MachineName = outLog.MachineName) "Expected MachineName"
@@ -130,7 +130,6 @@ module Tests =
                         (sprintf "inMillisecond = %i outMillisecond = %i" inLog.UtcRunTime.Millisecond outLog.UtcRunTime.Millisecond)
                     //Expect.isTrue (inLog.UtcRunTime.Ticks = outLog.UtcRunTime.Ticks) 
                     //    (sprintf "inTicks = %i outTicks = %i" inLog.UtcRunTime.Ticks outLog.UtcRunTime.Ticks)
-
 
             testCase "select by level" <| fun () ->
                 let testDate = DateTime.UtcNow.AddHours(-5.)

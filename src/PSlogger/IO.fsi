@@ -91,5 +91,5 @@ val insertAsync : azureConnectionString : string -> log : Log -> logNamePrefix :
 
 val list : predicate : Predicate -> azureConnectionString : string -> logNamePrefix : string -> Log []
 
-val purgeBeforeDaysBack : daysToPurgeBack : int -> azureConnectionString : string -> logNamePrefix : string -> int
+val purgeBeforeDaysBack : daysToPurgeBack : int -> azureConnectionString : string -> logNamePrefix : string -> Result<int, exn>
 

@@ -239,7 +239,7 @@ let dateTimeStringToDateTime (s : string) =
 let buildRowKey (log : Log) =
     match log.Process with
     | Some x -> 
-        $"{x} {dateTimeString log.UtcRunTime} {log.Counter.ToString().PadLeft(3, '0')}"
+        $"{x} | {dateTimeString log.UtcRunTime} {log.Counter.ToString().PadLeft(3, '0')}"
     | None -> 
         $"{dateTimeString log.UtcRunTime} {log.Counter.ToString().PadLeft(3, '0')}"
     
@@ -444,9 +444,15 @@ let deserializeLogRow (entity:DynamicTableEntity) =
         | Some x -> x.BinaryValue
         | None -> invalidArg "dynamicTableEntityToLogInternal" "Exception"
     
+
+    let getUtcRunTime () = 
+        let splitString = (entity.RowKey.Substring(0, entity.RowKey.Length - 4)).Split [|'|'|]
+        match splitString.Length with
+        | 1 -> DateTime.Parse <| splitString.[0]
+        | _ -> DateTime.Parse <| splitString.[1].Trim()
     { 
         Caller = entity.PartitionKey 
-        UtcRunTime = DateTime.Parse <| entity.RowKey.Substring(0, entity.RowKey.Length - 4)
+        UtcRunTime = getUtcRunTime()
         Counter = getIntProp "Counter"
         UtcTime = getDateProp "UtcTime"
         Level = getLogLevelProp()
@@ -499,31 +505,36 @@ let list (predicate : Predicate) azureConnectionString logNamePrefix =
          )  
 
 let purgeBeforeDaysBack daysToPurgeBack azureConnectionString logNamePrefix =
-    let account = CloudStorageAccount.Parse azureConnectionString 
-    let tableClient  = account.CreateCloudTableClient()
+    try 
+        let account = CloudStorageAccount.Parse azureConnectionString 
+        let tableClient  = account.CreateCloudTableClient()
 
-    let purgeTableName = 
-        DateTime.UtcNow.AddDays((float daysToPurgeBack) * -1.)
-        |> tableNameFromTime logNamePrefix
+        let purgeTableName = 
+            DateTime.UtcNow.AddDays((float daysToPurgeBack) * -1.)
+            |> tableNameFromTime logNamePrefix
 
-    let mutable token = new TableContinuationToken()
+        let mutable token = new TableContinuationToken()
 
-    let storageAccountTables = 
-        [|
-            while token <> null do
-                let tables = tableClient.ListTablesSegmentedAsync(logNamePrefix, token).Result
-                token <- tables.ContinuationToken
-                for x in tables.Results do
-                    x
-        |]
+        let storageAccountTables = 
+            [|
+                while token <> null do
+                    let tables = tableClient.ListTablesSegmentedAsync(logNamePrefix, token).Result
+                    token <- tables.ContinuationToken
+                    for x in tables.Results do
+                        x
+            |]
 
-    storageAccountTables 
-    |> Array.ofSeq
-    |> Array.fold (fun s (table : Table.CloudTable) ->
-        if table.Name < purgeTableName then
-            table.DeleteIfExistsAsync() |> ignore
-            s + 1
-        else
-            s
-        ) 0
+        let result = 
+            storageAccountTables 
+            |> Array.ofSeq
+            |> Array.fold (fun s (table : Table.CloudTable) ->
+                if table.Name < purgeTableName then
+                    table.DeleteIfExistsAsync() |> ignore
+                    s + 1
+                else
+                    s
+                ) 0
+        Ok result
+    with exn -> 
+        Result.Error exn
  
